@@ -34,12 +34,11 @@ int main() {
     std::vector<std::string> lines;  // Vector to store lines
     std::vector<int> words;  // Vector to store lines
 
-    printf( "apple = %08x (%d)\n", base32Number( "apple" ), base32Number( "apple" ) );
-    printf( "steve = %08x (%d)\n", base32Number( "steve" ), base32Number( "steve" ) );
-    printf( "ooooo = %08x (%d)\n", base32Number( "ooooo" ), base32Number( "ooooo" ) );
-    printf( "zzzzz = %08x (%d)\n", base32Number( "zzzzz" ), base32Number( "zzzzz" ) );
-    printf( "ppppp = %08x (%d)\n", base32Number( "ppppp" ), base32Number( "ppppp" ) );
-    std::cout << base32ToString( base32Number( "apple" ) ) << "\n";
+    printf( "; apple = %08x (%d)\n", base32Number( "apple" ), base32Number( "apple" ) );
+    printf( "; steve = %08x (%d)\n", base32Number( "steve" ), base32Number( "steve" ) );
+    printf( "; ooooo = %08x (%d)\n", base32Number( "ooooo" ), base32Number( "ooooo" ) );
+    printf( "; zzzzz = %08x (%d)\n", base32Number( "zzzzz" ), base32Number( "zzzzz" ) );
+    printf( "; ppppp = %08x (%d)\n", base32Number( "ppppp" ), base32Number( "ppppp" ) );
 
     // Open the file
     std::ifstream file("data/vocabulary.txt");
@@ -60,32 +59,45 @@ int main() {
     // Close the file
     file.close();
 
-    int count = 0;
+    printf( "VOCABULARY:\n" );
 
+    int count = 0;
+    int current = 0;
     for (int i=0;i!=words.size()-1;i++)
     {
-        int delta = words[i+1]-words[i];
+        int delta = words[i]-current;
+        current = words[i];
         if (delta<128)
         {
             count++;
-            // printf( "%02X", delta );
+            printf( ".byte $%02X", delta );
+            printf( " ; %s\n", base32ToString(words[i]).c_str() );
         }
-        else if (delta<32768)
+        else if (delta<16384)
         {
             count+=2;
-            // printf( "%04X", delta+(1<<15) );
+            delta += (1<<15);
+            printf( ".byte $%02X,$%02X", delta>>8, delta%256 );
+            printf( " ; %s\n", base32ToString(words[i]).c_str() );
         }
         else
         {
             count+=3;
-            // printf( "%06X", delta+(1<<23)+(1<<22) );
+            delta += (1<<23)+(1<<22);
+            printf( ".byte $%02X,$%02X,$%02X", delta>>16, (delta>>8)%256, delta%256 );
+            printf( " ; %s\n", base32ToString(words[i]).c_str() );
         }
         // std::cout << delta << " ";
         // if (delta>100000)
         //     std::cout << "(" << base32ToString( words[i] ) << " " << base32ToString( words[i+1] ) << ") ";
     }
 
-    std::cout << "\n" << "\n#bytes:" << count << "\n";
+    int delta = base32Number("zzzzz")+1-words.back();
+    delta += (1<<23)+(1<<22);
+    printf( ".byte $%02X,$%02X,$%02X", delta>>16, (delta>>8)%256, delta%256 );
+    printf( " ; go past zzzzz\n" );
+
+    std::cout << "\n" << "\n; bytes " << count << "\n"; // ... no ':1' in comment or assembly fails...
 
     return 0;
 }
