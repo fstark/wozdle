@@ -60,9 +60,10 @@ int main() {
     file.close();
 
     printf( "VOCABULARY:\n" );
+    printf( "; aaaaa = %08x (%d)\n", base32Number( "aaaaa" ), base32Number( "aaaaa" ) );
 
     int count = 0;
-    int current = 0;
+    int current = base32Number( "aaaaa" );
     for (int i=0;i!=words.size()-1;i++)
     {
         int delta = words[i]-current;
@@ -71,21 +72,21 @@ int main() {
         {
             count++;
             printf( ".byte $%02X", delta );
-            printf( " ; %s\n", base32ToString(words[i]).c_str() );
+            printf( " ; %s %08x\n", base32ToString(words[i]).c_str(), current );
         }
         else if (delta<16384)
         {
             count+=2;
             delta += (1<<15);
             printf( ".byte $%02X,$%02X", delta>>8, delta%256 );
-            printf( " ; %s\n", base32ToString(words[i]).c_str() );
+            printf( " ; %s  %08x\n", base32ToString(words[i]).c_str(), current );
         }
         else
         {
             count+=3;
             delta += (1<<23)+(1<<22);
             printf( ".byte $%02X,$%02X,$%02X", delta>>16, (delta>>8)%256, delta%256 );
-            printf( " ; %s\n", base32ToString(words[i]).c_str() );
+            printf( " ; %s %08x\n", base32ToString(words[i]).c_str(), current );
         }
         // std::cout << delta << " ";
         // if (delta>100000)

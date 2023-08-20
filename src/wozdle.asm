@@ -5,6 +5,9 @@
 PRBYTE = $FFDC
 ECHO   = $FFEF
 
+KBD   = $D010	; Keyboard I/O
+KBDCR = $D011
+
 WORD0 = $20
 WORD1 = $21
 WORD2 = $22
@@ -16,6 +19,7 @@ NUM1  = $26
 NUM2  = $27
 NUM3  = $28
 
+VOCPTR = $29
 
 ; Mapping from a 5 character word into a 4 bytes number
 ; a transcodes to a 1
@@ -28,7 +32,142 @@ NUM3  = $28
 ;         => 10000101 01000001 00011000 00000000 
 ; "apple" => 85 41 18 00   
 
-    JMP TEST
+    JSR TEST
+
+        ; Loads with 'aaaaa'
+    LDA #$21
+    STA NUM0
+    LDA #$84
+    STA NUM1
+    LDA #$10
+    STA NUM2
+    LDA #$00
+    STA NUM3
+
+    ;     ; hack: abacs
+    ; LDA #$73
+    ; STA NUM0
+    ; LDA #$04
+    ; STA NUM1
+    ; LDA #$11
+    ; STA NUM2
+    ; LDA #$00
+    ; STA NUM3
+
+
+    LDA #<VOCABULARY
+    STA VOCPTR
+    LDA #>VOCABULARY
+    STA VOCPTR+1
+
+LL:
+    JSR NEXTVOCPTR
+    JSR N2W
+    ; JSR DBGW
+    ; JSR KBDIN
+    JMP LL
+
+    JMP HALT
+
+NEXTVOCPTR1:
+        ;   Adds 1 bytes (128-16383)
+    LDA (VOCPTR),Y
+    AND #$7f
+    CLC
+    ADC NUM0
+    STA NUM0
+
+    LDA #$00
+    ADC NUM1
+    STA NUM1
+    LDA #$00
+    ADC NUM2
+    STA NUM2
+    LDA #$00
+    ADC NUM3
+    STA NUM3
+
+    CLC
+    LDA #$01
+    ADC VOCPTR
+    STA VOCPTR
+    LDA #$00
+    ADC VOCPTR+1
+    STA VOCPTR+1
+
+    RTS
+
+NEXTVOCPTR2:
+        ;   Adds 2 bytes (128-16383)
+    LDY #$01
+    LDA (VOCPTR),Y
+    CLC
+    ADC NUM0
+    STA NUM0
+
+    DEY
+    LDA (VOCPTR),Y
+    AND #$3f
+    ADC NUM1
+    STA NUM1
+
+    LDA #$00
+    ADC NUM2
+    STA NUM2
+    LDA #$00
+    ADC NUM3
+    STA NUM3
+
+    CLC
+    LDA #$02
+    ADC VOCPTR
+    STA VOCPTR
+    LDA #$00
+    ADC VOCPTR+1
+    STA VOCPTR+1
+
+    RTS
+
+NEXTVOCPTR:
+    LDY #$00
+    LDA (VOCPTR),Y
+    ROL
+    BCC NEXTVOCPTR1
+    ROL
+    BCC NEXTVOCPTR2
+
+NEXTVOCPTR3:
+        ;   Adds 3 bytes (16384-)
+    LDY #$02
+    LDA (VOCPTR),Y
+    CLC
+    ADC NUM0
+    STA NUM0
+
+    DEY
+    LDA (VOCPTR),Y
+    ADC NUM1
+    STA NUM1
+
+    DEY
+    LDA (VOCPTR),Y
+    AND #$3f
+    ADC NUM2
+    STA NUM2
+
+    LDA #$00
+    ADC NUM3
+    STA NUM3
+
+    CLC
+    LDA #$03
+    ADC VOCPTR
+    STA VOCPTR
+    LDA #$00
+    ADC VOCPTR+1
+    STA VOCPTR+1
+
+    RTS
 
 N2W:
     LDA #$40
@@ -41,7 +180,7 @@ N2W:
         ; NUM0
     LDA NUM0
     TAX
-    AND $1F
+    AND #$1F
     ORA WORD4
     STA WORD4
 
@@ -58,7 +197,7 @@ N2W:
         ; NUM1
     LDA NUM1
     TAX
-    AND $03
+    AND #$03
     ASL
     ASL
     ASL
@@ -66,14 +205,14 @@ N2W:
     STA WORD3
     
     TXA
-    AND $7c
+    AND #$7c
     LSR
     LSR
     ORA WORD2
     STA WORD2
     
     TXA
-    AND $80
+    AND #$80
     LSR
     LSR
     LSR
@@ -87,13 +226,13 @@ N2W:
         ; NUM2
     LDA NUM2
     TAX
-    AND $0f
+    AND #$0f
     ASL
     ORA WORD1
     STA WORD1
 
     TXA
-    AND $f0
+    AND #$f0
     LSR
     LSR
     LSR
@@ -194,7 +333,7 @@ LOOP0:
     BNE LOOP0
     JSR W2N
     JSR N2W
-    JSR W2N ; Way to test, mostly good [blog?]
+    JSR W2N ; Way to test, mostly good [blog? yes]
 
     LDX #$00
 LOOP1:
@@ -212,6 +351,7 @@ ERROR:
 
 DONE:
     JSR ECHOPASSED
+    RTS
 HALT:
     JMP HALT
 
@@ -241,6 +381,31 @@ TESTDATA:
 .byte $5a,$6b,$ad,$01
 .byte "PPPPP"   ; 01084210
 .byte $10,$42,$08,$01
+.byte "ABAFT"   ; 001104d4
+.byte $d4,$04,$11,$00
+.byte "ABADT"   ; 00110494
+.byte $94,$04,$11,$00
 .byte 0
+
+DBGW:
+    LDA WORD0
+    JSR ECHO
+    LDA WORD1
+    JSR ECHO
+    LDA WORD2
+    JSR ECHO
+    LDA WORD3
+    JSR ECHO
+    LDA WORD4
+    JSR ECHO
+    LDA #$20
+    JSR ECHO
+    RTS
+
+KBDIN:
+    LDA     KBDCR
+    BPL     KBDIN
+    LDA     KBD
+    RTS
 
 #include "obj/vocabulary.asm"
