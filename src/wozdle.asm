@@ -650,8 +650,10 @@ MSGRULES:
     .byte "Rules: you must guess a 5 letter word", $0d,
     .byte "       you have 6 tries", $0d
     .byte "       type when the cursor is", $0d
-    .byte "       in the bottom-left corner", $0d,$04
-    .byte "       may the woz be with you", $0d, $0d, $0d, $0d, $0d, $0d, $0d, $0d
+    .byte "       in the bottom-left corner", $0d,$0d
+    .byte "       ! : Letter placed properly", $0d
+    .byte "       ? : Letter placed improperly", $0d, $0d
+    .byte "       may the woz be with you", $0d, $0d, $0d, $0d, $0d
     .byte $0d, $00
 
 ; ---------------------------------------------------------------------------------
