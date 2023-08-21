@@ -62,7 +62,10 @@ GUESSCOUNT = $1E;   Current number of guesses done (1 byte)
 HISTORY = $20   ;   30 bytes containing the guess history (30 bytes)
 
 ;   Status of every letter in the keyboard (26 bytes)
-LETTERS = $3E           ; The 26 letters and what we know about them (WHITE, GRAY, YELLOW, GREEN)
+LETTERS = $3E           ;   The 26 letters and what we know about them (WHITE, GRAY, YELLOW, GREEN)
+
+SCANMASK = $58          ;   The scan mask used when drawing a big letter
+TMP = $59
 
 ; ---------------------------------------------------------------------------------
 ;   Main code 
@@ -165,6 +168,14 @@ WON:
     JSR MSGOUT
 
     JSR DSPTARGET
+
+    LDA #$d
+    JSR ECHO
+    LDA #<TARGET
+    STA MSG
+    LDA #>TARGET
+    STA MSG+1
+    JSR DRAWBIGTEXT
 
     LDA #<MSGWON2
     STA MSG
@@ -1514,10 +1525,229 @@ DBGW:
 
 #include "obj/data.asm"
 
+XXX:
+    LDA #$d
+    JSR ECHO
+    JSR ECHO
+    JSR ECHO
+    LDA #<T
+    STA MSG
+    LDA #>T
+    STA MSG+1
+    JSR DRAWBIGTEXT
+    RTS
+
+T:
+    .byte "UVWXY"
+
+;   Draw a text in big font
+DRAWBIGTEXT:
+.(
+    LDA #$01
+    STA SCANMASK
+LOOP:
+    JSR DRAWBIGTEXTLINE
+    LDA #$d
+    JSR ECHO
+    ASL SCANMASK
+    BNE LOOP
+    RTS
+.)
+
+DRAWBIGTEXTLINE:
+.(
+    LDY #0
+LOOP:
+    LDA (MSG),Y         ;   Character to display
+                        ;   (ACC-'A')*5
+    SEC
+    SBC #"A"
+    ASL
+    ASL
+    ADC (MSG),Y
+    SEC
+    SBC #"A"
+    TAX
+    TYA
+    PHA
+    LDY #05
+LOOP3:
+    LDA CHARROM,X
+    AND SCANMASK
+    BEQ SPACE:
+    LDA #"*"
+    JMP PRINT
+SPACE:
+    LDA #" "
+PRINT:
+    JSR ECHO
+    INX
+    DEY
+    BNE LOOP3           ;   Next column
+    LDA #" "
+    JSR ECHO
+    PLA
+    TAY
+    INY                 ;   Next char
+    CPY #5
+    BNE LOOP
+    RTS
+.)
+
 CHARROM:
+        ;   A
+    .byte %01111100
+    .byte %00010010
+    .byte %00010001
+    .byte %00010010
+    .byte %01111100
+        ;   B
+    .byte %01111111
+    .byte %01001001
+    .byte %01001001
+    .byte %01001001
+    .byte %00110110
+        ;   C
+    .byte %00111110
+    .byte %01000001
+    .byte %01000001
+    .byte %01000001
+    .byte %00100010
+        ;   D
+    .byte %01111111
+    .byte %01000001
+    .byte %01000001
+    .byte %01000001
+    .byte %00111110
+        ;   E
+    .byte %01111111
+    .byte %01001001
+    .byte %01001001
+    .byte %01001001
+    .byte %01000001
+        ;   F
+    .byte %01111111
+    .byte %00001001
+    .byte %00001001
+    .byte %00001001
+    .byte %00000001
+        ;   G
+    .byte %00111110
+    .byte %01000001
+    .byte %01000001
+    .byte %01010001
+    .byte %01110010
+        ;   H
+    .byte %01111111
+    .byte %00001000
+    .byte %00001000
+    .byte %00001000
+    .byte %01111111
+        ;   I
+    .byte %00000000
+    .byte %01000001
+    .byte %01111111
+    .byte %01000001
+    .byte %00000000
+        ;   J
+    .byte %00100000
+    .byte %01000000
+    .byte %01000000
+    .byte %01000000
+    .byte %00111111
+        ;   K
+    .byte %01111111
+    .byte %00001000
+    .byte %00010100
+    .byte %00100010
+    .byte %01000001
+        ;   L
+    .byte %01111111
+    .byte %01000000
+    .byte %01000000
+    .byte %01000000
+    .byte %01000000
+        ;   M
+    .byte %01111111
+    .byte %00000010
+    .byte %00001100
+    .byte %00000010
+    .byte %01111111
+        ;   N
+    .byte %01111111
+    .byte %00000100
+    .byte %00001000
+    .byte %00010000
+    .byte %01111111
+        ;   O
+    .byte %00111110
+    .byte %01000001
+    .byte %01000001
+    .byte %01000001
+    .byte %00111110
+        ;   P
+    .byte %01111111
+    .byte %00001001
+    .byte %00001001
+    .byte %00001001
+    .byte %00000110
+        ;   Q
+    .byte %00111110
+    .byte %01000001
+    .byte %01010001
+    .byte %00100001
+    .byte %01011110
+        ;   R
+    .byte %01111111
+    .byte %00001001
+    .byte %00011001
+    .byte %00101001
+    .byte %01000110
+        ;   S
+    .byte %00100110
+    .byte %01001001
+    .byte %01001001
+    .byte %01001001
+    .byte %00110010
+        ;   T
+    .byte %00000001
+    .byte %00000001
+    .byte %01111111
+    .byte %00000001
+    .byte %00000001
+        ;   U
+    .byte %00111111
+    .byte %01000000
+    .byte %01000000
+    .byte %01000000
+    .byte %00111111
+        ;   v
+    .byte %00011111
+    .byte %00100000
+    .byte %01000000
+    .byte %00100000
+    .byte %00011111
         ;   W
     .byte %00111111
     .byte %01000000
     .byte %00110000
     .byte %01000000
     .byte %00111111
+        ;   X
+    .byte %01100011
+    .byte %00010100
+    .byte %00001000
+    .byte %00010100
+    .byte %01100011
+        ;   Y
+    .byte %00000011
+    .byte %00000100
+    .byte %01111000
+    .byte %00000100
+    .byte %00000011
+        ;   W
+    .byte %01100011
+    .byte %01010001
+    .byte %01001001
+    .byte %01000101
+    .byte %01100011
