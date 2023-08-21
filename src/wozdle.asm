@@ -10,73 +10,93 @@ KBDCR = $D011
 
 ; ---------------------------------------------------------------------------------
 ;   ZP Variables
-;   TODO WORD0-WORD4 and NUM0-NUM3 into +1,2,3, etc...
 ; ---------------------------------------------------------------------------------
 
+;   WORD contains an 5 letter word and is used as parameter for most word
+;   manipulation routines
+WORD  = $00     ;   5 ASCII characters, 'A'-'Z' (5 bytes)
 
-WORD  = $20
-WORD0 = WORD     ;   The current word register in alphabetical form
-WORD1 = $21
-WORD2 = $22
-WORD3 = $23
-WORD4 = $24
+;   NUM contains a 4 byte number that is a reprensentation of a word
+;   Used by most conversion routintes
+NUM   = $05     ;   a 25 bits number (4 bytes)
 
-NUM   = $25
-NUM0  = NUM      ;   The current word register in numerical form
-NUM1  = $26
-NUM2  = $27
-NUM3  = $28
+;   VOCPTR is the current entry in the vocabulary data structure
+VOCPTR = $09    ;   Pointer to the vocabulary (2 bytes)
 
-VOCPTR = $29    ;   Pointer to the vocabulary
-ANSPTR = $2B    ;   Pointer to the answer bitmap
+;   ANSPTR is the current entry in the answer data structure
+ANSPTR = $0B    ;   Pointer to the answer bitmap (2 bytes)
 
-ANSINX = $2D    ;   Index of answer searched in answers
+;   When scanning the Answers, this is the index we are looking for
+ANSINX = $0D    ;   Index of answer searched in answers (2 bytes)
 
-ANSCUR = $2F    ;   Workin area, current 8 bits of answer bitmap
+;   Contains the 8 bits of the current answer bitmap
+ANSCUR = $0F    ;   Workin area, current 8 bits of answer bitmap (1 byte)
 
-MSG    = $30    ;   Pointer to message to display
+;   Address of a zero-terminated stringd
+;   Used as an argument for MSG related functions
+MSG    = $10    ;   Pointer to message to display (2 bytes)
 
-TARGET = $32    ;   Target word to find (5 bytes)
+;   This is the word that the player must find
+TARGET = $12    ;   Target word to find (5 bytes) (5 bytes)
 
+; 0=>non exist, 1=>gray, 2=>yellow, 3=>green
 WHITE = 0
 GRAY = 1
 YELLOW = 2
 GREEN = 3
-; 0=>non exist, 1=>gray, 2=>yellow, 3=>green
-COLORS = $37    ;   Colors of the guess (size 5)
 
-; GUESSCHAR = $3C ;   Current char checked form guess
-GUESSCHARIX = $3D   ;   Current letter index checked form guess
+;   The colors of the current guess
+;   Set and used in the printing routines of the word
+COLORS = $17    ;   Colors of the current guess (5 bytes)
 
-GUESSCOUNT = $3E;   Current number of guesses done
-GUESSIX = $3F   ;   Current guess drawn
-HISTORY = $40   ;   30 bytes containing the guess history
-LETTERS = $5E           ; The 26 letters and what we know about them (WHITE, GRAY, YELLOW, GREEN)
+;   Used as an input argument for color detection routines
+GUESSIX = $1F       ;   Current guess drawn (1 byte)
+GUESSCHARIX = $1D   ;   Current letter index checked from guess (1 byte)
 
 MAXGUESS = 6
+;   The current number of guesses done. Games stops at MAXGUESSES
+GUESSCOUNT = $1E;   Current number of guesses done (1 byte)
 
-INITGAME:
+;   Stores the complete history of player input
+;   Used to re-draw the screen
+HISTORY = $20   ;   30 bytes containing the guess history (30 bytes)
+
+;   Status of every letter in the keyboard (26 bytes)
+LETTERS = $3E           ; The 26 letters and what we know about them (WHITE, GRAY, YELLOW, GREEN)
+
+; ---------------------------------------------------------------------------------
+;   Main code 
+; ---------------------------------------------------------------------------------
+
+START:
 .(
-    LDA #$00
-    STA GUESSCOUNT      ; No guesses yet
+        ;   ZP variables initialisation
 
-        ;   Sets the 26 letters to WHITE
+        ;   GUESSCOUNT = 0
+    LDA #$00
+    STA GUESSCOUNT
+
+        ;   LETTERS [0..25] = WHITE
     LDX #26
 LOOP1:
     DEX
     STA LETTERS,X
     BNE LOOP1
 
-    JSR RNDINIT         ;   Generates a random word to search
+        ;   Generates a random number
+    JSR RNDINIT
 
+        ;   Clear screen
     JSR PAGEFEED
 
+        ;   Display rules
     LDA #<MSGRULES
     STA MSG
     LDA #>MSGRULES
     STA MSG+1
     JSR MSGOUT
 
+        ;   Display large welcome message
     LDA #<WELCOME
     STA MSG
     LDA #>WELCOME
@@ -85,40 +105,336 @@ LOOP1:
 MAIN:
 
 CONT:
-
-        ; Draw all the guesses
+        ; We draw all the guesses
     LDA #$0
     STA GUESSIX
 LOOP2:
     LDA GUESSCOUNT
     CMP GUESSIX
-    BEQ CONT2            ;   Stop at GUESSCOUNT
-    JSR DRAWGUESS       ;   Draw guess
+    BEQ CONT2           ;   Stop at GUESSCOUNT
+    JSR DRAWGUESS       ;   Draw guess (automatically includes the keyboard if needed)
     INC GUESSIX
     JMP LOOP2
 
 CONT2:
     JSR GUESSGET        ;   Ask user for a guess
-    BNE REFRESH
+    BNE REFRESH         ;   If we don't know the guess, we need to redraw everything
 
-    JSR UPDATE          ;   Update keyboard and stuff
+    JSR UPDATE          ;   Update keyboard colors and stuff
 
     LDA GUESSCOUNT      ;   So the draw knows the keyboard is needed
     SEC
     SBC #1
     STA GUESSIX
     JSR DRAWGUESS2      ;   Draws the guess, without the guessed word
-    JMP CONT2           ;   Ask for next guess  
+
+    ; HERE WE TEST FOR END GAME STATUS
+        ;   Check if won
+    LDA COLORS
+    AND COLORS+1
+    AND COLORS+2
+    AND COLORS+3
+    AND COLORS+4
+    CMP #GREEN
+    BNE CONT3
+
+        ;   Player won
+    JSR WON
+    JMP START
+CONT3:
+        ;   Check if lost
+    LDA GUESSCOUNT
+    CMP #MAXGUESS
+    BNE CONT2           ;   Ask for next guess  
+
+        ;   Player lost
+    JSR LOST
+    JMP START
 
 REFRESH:
-    JSR PAGEFEED
-    JMP MAIN
-
-
-EXIT:
-    JMP HALT
+    JSR PAGEFEED        ;   Scroll screen off
+    JMP MAIN            ;   Redraw game and continue
 .)
 
+WON:
+.(
+    LDA #<MSGWON1
+    STA MSG
+    LDA #>MSGWON1
+    STA MSG+1
+    JSR MSGOUT
+
+    JSR DSPTARGET
+
+    LDA #<MSGWON2
+    STA MSG
+    LDA #>MSGWON2
+    STA MSG+1
+    JSR MSGOUT
+
+    JSR DRAWSUMMARY
+
+    RTS
+.)
+
+LOST:
+.(
+    LDA #<MSGLOST1
+    STA MSG
+    LDA #>MSGLOST1
+    STA MSG+1
+    JSR MSGOUT
+
+    JSR DSPTARGET
+
+    LDA #<MSGLOST2
+    STA MSG
+    LDA #>MSGLOST2
+    STA MSG+1
+    JSR MSGOUT
+
+    JSR DRAWSUMMARY
+
+    RTS
+.)
+
+DRAWSUMMARY:
+.(
+    LDA #<MSGSUMMARY
+    STA MSG
+    LDA #>MSGSUMMARY
+    STA MSG+1
+    JSR MSGOUT
+
+    ;line 1
+    LDA #"1"
+    JSR ECHO
+    LDA #":"
+    JSR ECHO
+
+    LDA #0
+    STA GUESSIX
+    JSR DRAWGUESS1
+
+    LDA #" "
+    JSR ECHO
+    JSR ECHO
+    LDA #"2"
+    JSR ECHO
+    LDA #":"
+    JSR ECHO
+
+    INC GUESSIX
+    JSR DRAWGUESS1
+
+    LDA #" "
+    JSR ECHO
+    JSR ECHO
+    LDA #"3"
+    JSR ECHO
+    LDA #":"
+    JSR ECHO
+
+    INC GUESSIX
+    JSR DRAWGUESS1
+    LDA #" "
+    JSR ECHO
+
+    ; line 2
+    LDA #" "
+    JSR ECHO
+
+    LDA #0
+    STA GUESSIX
+    JSR DRAWCOL1        ;   Draw colors
+
+    LDA #" "
+    LDX #04
+    JSR ECHOR
+
+    INC GUESSIX
+    JSR DRAWCOL1        ;   Draw colors
+
+    LDA #" "
+    LDX #04
+    JSR ECHOR
+
+    INC GUESSIX
+    JSR DRAWCOL1        ;   Draw colors
+
+    LDA #$d
+    JSR ECHO
+    JSR ECHO
+
+    ;line 3
+    LDA #"4"
+    JSR ECHO
+    LDA #":"
+    JSR ECHO
+
+    LDA #3
+    STA GUESSIX
+    JSR DRAWGUESS1
+
+    LDA #" "
+    JSR ECHO
+    JSR ECHO
+    LDA #"5"
+    JSR ECHO
+    LDA #":"
+    JSR ECHO
+
+    INC GUESSIX
+    JSR DRAWGUESS1
+
+    LDA #" "
+    JSR ECHO
+    JSR ECHO
+    LDA #"6"
+    JSR ECHO
+    LDA #":"
+    JSR ECHO
+
+    INC GUESSIX
+    JSR DRAWGUESS1
+
+    LDA #" "
+    JSR ECHO
+
+    ; line 4
+    LDA #" "
+    JSR ECHO
+
+    LDA #3
+    STA GUESSIX
+    JSR DRAWCOL1        ;   Draw colors
+
+    LDA #" "
+    LDX #04
+    JSR ECHOR
+
+    INC GUESSIX
+    JSR DRAWCOL1        ;   Draw colors
+
+    LDA #" "
+    LDX #04
+    JSR ECHOR
+
+    INC GUESSIX
+    JSR DRAWCOL1        ;   Draw colors
+
+    LDA #$d
+    JSR ECHO
+
+
+
+    RTS
+.)
+
+DRAWGUESS1:
+.(
+        ;   We skip if over the guess count
+    LDA GUESSIX
+    CMP GUESSCOUNT
+    BMI CONT
+
+    LDA #" "
+    LDX #10
+    JSR ECHOR
+    RTS
+
+CONT:
+    JSR FETCHHISTORY    ;   WORD = HISTORY[GUESSIX]
+
+    LDX #0
+LOOP2:
+    LDA WORD,X
+    JSR ECHO
+    LDA #" "
+    JSR ECHO
+    INX
+    CPX #5
+    BNE LOOP2
+
+    RTS
+.)
+
+DRAWCOL1:
+.(
+        ;   We skip if over the guess count
+    LDA GUESSIX
+    CMP GUESSCOUNT
+    BMI CONT
+    RTS
+
+CONT:
+    JSR FETCHHISTORY    ;   WORD = HISTORY[GUESSIX]
+    JSR WRD2COL         ;   Update the color status
+    JSR PRTCOLORS       ;   Print colors symbols
+    RTS
+.)
+
+
+;   Copies the GUESSIX's history word into WORD
+FETCHHISTORY:
+.(
+                         ; Multiply GUESSIX by 5
+    LDA GUESSIX
+    ASL
+    ASL
+    ADC GUESSIX
+
+                        ; Copy the guess at HISTORY+A in WORD
+    TAX
+    LDY #0
+
+LOOP1:
+    LDA HISTORY,X
+    STA WORD,Y
+    INX
+    INY
+    CPY #5
+    BNE LOOP1
+
+    RTS
+.)
+
+
+MSGWON1:
+    .byte $d, $d, $d, "congratulations, you won wozdle.", $d, $d
+    .byte "the word to find was ", 34
+    .byte 0
+MSGWON2:
+    .byte 34, $d, $d, 0
+
+MSGLOST1:
+    .byte $d, $d, $d, "bzzzt! you have lost.", $d, $d
+    .byte "the word to find was ", 34
+    .byte 0
+MSGLOST2:
+    .byte 34, $d, $d, 0
+
+MSGSUMMARY:
+    .byte "your answers were:", $d, $d
+    .byte 0
+
+DSPTARGET:
+.(
+    LDX #$0
+LOOP:
+    LDA TARGET,X
+    JSR ECHO
+    INX
+    CPX #5
+    BNE LOOP
+    RTS
+.)
+
+; ---------------------------------------------------------------------------------
+;   Draw a guess line (guess, colors, keyboard)
+;   two entry points, one is used if redrawing the game fully
+;   second durint play (as the input routine already displayed the word)
+; ---------------------------------------------------------------------------------
 DRAWGUESS:
                         ; Multiply GUESSIX by 5
     LDA GUESSIX
@@ -517,7 +833,7 @@ UNEXCLUDE:
     JMP HALT
 
 ; Seek answer of index ANSWINX
-; Stored in NUM0-3
+; Stored in NUM
 ANSSEEK:
 .(
     JSR NUMCLR
@@ -575,14 +891,14 @@ CONT:
     JMP HALT
 
 ; ---------------------------------------------------------------------------------
-;   Gnerates a random TARGET word
+;   Generates a random TARGET word
 ; ---------------------------------------------------------------------------------
 RNDINIT:
 .(
         ;   Display user message
-    LDA #<RNDMSG
+    LDA #<MSGRND
     STA MSG
-    LDA #>RNDMSG
+    LDA #>MSGRND
     STA MSG+1
     JSR MSGOUT
 
@@ -603,6 +919,9 @@ CONT:
     AND #$3f            ;   Last 6 bits
     CMP #$20            ;   Space?
     BNE LOOP1           ;   Nope
+
+    LDA #$d
+    JSR ECHO
 
         ; Get the number mod ANSCOUNT (2309)
         ; By adding ANSCOUNT until we have a carry
@@ -627,22 +946,21 @@ LOOP2:
                         ;   (note the time to load gives the player an indication of the place of the word)
 
     JSR N2W             ;   Gets it in ASCII form into TARGET
-    LDA WORD0
+    LDA WORD
     STA TARGET
-    LDA WORD1
+    LDA WORD+1
     STA TARGET+1
-    LDA WORD2
+    LDA WORD+2
     STA TARGET+2
-    LDA WORD3
+    LDA WORD+3
     STA TARGET+3
-    LDA WORD4
+    LDA WORD+4
     STA TARGET+4
 
     RTS
 
-RNDMSG:
-    .byte $0d, $0d, "       -- press space to start --"
-    .byte $0d, $00
+MSGRND:
+    .byte $d, $d, "     -- press space for new game -- ", 0
 .)
 
 MSGRULES:
@@ -709,7 +1027,7 @@ LOOP:
     LDA NUM+3           ;   While negative
     BNE LOOP            ;   Loop
 
-    ORA NUM+2           ;   Check if NUM0-NUM3 is zero
+    ORA NUM+2           ;   Check if NUM-NUM+3 is zero
     ORA NUM+1
     ORA NUM
 
@@ -777,24 +1095,24 @@ DONE:
 
 NUMCLR:         ;   Sets 'aaaaa' as the current numerical word
     LDA #$00
-    STA NUM0
-    STA NUM1
-    STA NUM2
-    STA NUM3
+    STA NUM
+    STA NUM+1
+    STA NUM+2
+    STA NUM+3
 NUMADJUST:      ;   Adjusts num by adding 'aaaaa'
     CLC
     LDA #$21
-    ADC NUM0
-    STA NUM0
+    ADC NUM
+    STA NUM
     LDA #$84
-    ADC NUM1
-    STA NUM1
+    ADC NUM+1
+    STA NUM+1
     LDA #$10
-    ADC NUM2
-    STA NUM2
+    ADC NUM+2
+    STA NUM+2
     LDA #$00
-    ADC NUM3
-    STA NUM3
+    ADC NUM+3
+    STA NUM+3
 
     LDA #<VOCABULARY
     STA VOCPTR
@@ -814,18 +1132,18 @@ NEXTVOCPTR1:
     LDA (VOCPTR),Y
     AND #$7f
     CLC
-    ADC NUM0
-    STA NUM0
+    ADC NUM
+    STA NUM
 
     LDA #$00
-    ADC NUM1
-    STA NUM1
+    ADC NUM+1
+    STA NUM+1
     LDA #$00
-    ADC NUM2
-    STA NUM2
+    ADC NUM+2
+    STA NUM+2
     LDA #$00
-    ADC NUM3
-    STA NUM3
+    ADC NUM+3
+    STA NUM+3
 
     CLC
     LDA #$01
@@ -842,21 +1160,21 @@ NEXTVOCPTR2:
     LDY #$01
     LDA (VOCPTR),Y
     CLC
-    ADC NUM0
-    STA NUM0
+    ADC NUM
+    STA NUM
 
     DEY
     LDA (VOCPTR),Y
     AND #$3f
-    ADC NUM1
-    STA NUM1
+    ADC NUM+1
+    STA NUM+1
 
     LDA #$00
-    ADC NUM2
-    STA NUM2
+    ADC NUM+2
+    STA NUM+2
     LDA #$00
-    ADC NUM3
-    STA NUM3
+    ADC NUM+3
+    STA NUM+3
 
     CLC
     LDA #$02
@@ -881,23 +1199,23 @@ NEXTVOCPTR3:
     LDY #$02
     LDA (VOCPTR),Y
     CLC
-    ADC NUM0
-    STA NUM0
+    ADC NUM
+    STA NUM
 
     DEY
     LDA (VOCPTR),Y
-    ADC NUM1
-    STA NUM1
+    ADC NUM+1
+    STA NUM+1
 
     DEY
     LDA (VOCPTR),Y
     AND #$3f
-    ADC NUM2
-    STA NUM2
+    ADC NUM+2
+    STA NUM+2
 
     LDA #$00
-    ADC NUM3
-    STA NUM3
+    ADC NUM+3
+    STA NUM+3
 
     CLC
     LDA #$03
@@ -916,7 +1234,7 @@ NEXTVOCPTR3:
 ; Mapping from a 5 character word into a 4 bytes number
 ; a transcodes to a 1
 ; abcde => dddeeeee bcccccdd aaaabbbb 0000000a   
-;            NUM0     NUM1     NUM2     NUM3
+;            NUM     NUM+1     NUM+2     NUM+3
 ; "APPLE" => 41 50 50 4C 45
 ;         => 0000 0001  0001 0000  0001 0000  0000 1100  0000 0101
 ;         =>     00001      10000      10000      01100      00101
@@ -927,18 +1245,18 @@ NEXTVOCPTR3:
 
 N2W:
     LDA #$40
-    STA WORD4
-    STA WORD3
-    STA WORD2
-    STA WORD1
-    STA WORD0
+    STA WORD+4
+    STA WORD+3
+    STA WORD+2
+    STA WORD+1
+    STA WORD
 
-        ; NUM0
-    LDA NUM0
+        ; NUM
+    LDA NUM
     TAX
     AND #$1F
-    ORA WORD4
-    STA WORD4
+    ORA WORD+4
+    STA WORD+4
 
     TXA
     ; No AND, as all bits goes right
@@ -947,25 +1265,25 @@ N2W:
     LSR
     LSR
     LSR
-    ORA WORD3
-    STA WORD3
+    ORA WORD+3
+    STA WORD+3
 
-        ; NUM1
-    LDA NUM1
+        ; NUM+1
+    LDA NUM+1
     TAX
     AND #$03
     ASL
     ASL
     ASL
-    ORA WORD3
-    STA WORD3
+    ORA WORD+3
+    STA WORD+3
     
     TXA
     AND #$7c
     LSR
     LSR
-    ORA WORD2
-    STA WORD2
+    ORA WORD+2
+    STA WORD+2
     
     TXA
     AND #$80
@@ -976,16 +1294,16 @@ N2W:
     LSR
     LSR
     LSR ; (Should be CLC + 2 ROL)
-    ORA WORD1
-    STA WORD1
+    ORA WORD+1
+    STA WORD+1
 
-        ; NUM2
-    LDA NUM2
+        ; NUM+2
+    LDA NUM+2
     TAX
     AND #$0f
     ASL
-    ORA WORD1
-    STA WORD1
+    ORA WORD+1
+    STA WORD+1
 
     TXA
     AND #$f0
@@ -993,29 +1311,29 @@ N2W:
     LSR
     LSR
     LSR
-    ORA WORD0
-    STA WORD0
+    ORA WORD
+    STA WORD
 
-        ; NUM3
-    LDA NUM3
+        ; NUM+3
+    LDA NUM+3
     ASL
     ASL
     ASL
     ASL
-    ORA WORD0
-    STA WORD0
+    ORA WORD
+    STA WORD
 
     RTS
 
-;   Creates the number for the word (WORD0 => NUM0)
+;   Creates the number for the word (WORD => NUM)
 W2N:
         ;   4th letter
-    LDA WORD4
+    LDA WORD+4
     EOR #$40    ;   Letter index
-    STA NUM0
+    STA NUM
 
         ;   3rd letter
-    LDA WORD3
+    LDA WORD+3
     EOR #$40    ;   Letter index
     TAX
     ASL
@@ -1023,37 +1341,37 @@ W2N:
     ASL
     ASL
     ASL
-    ORA NUM0
-    STA NUM0
+    ORA NUM
+    STA NUM
     TXA
     LSR
     LSR
     LSR
-    STA NUM1
+    STA NUM+1
 
         ; 2nd letter
-    LDA WORD2
+    LDA WORD+2
     EOR #$40    ;   Letter index
     ASL
     ASL
-    ORA NUM1
-    STA NUM1
+    ORA NUM+1
+    STA NUM+1
 
         ; 1st letter
-    LDA WORD1
+    LDA WORD+1
     EOR #$40    ;   Letter index
     TAX
-    ROR         ;   Could do better if NUM1 was already shifter of one bit
+    ROR         ;   Could do better if NUM+1 was already shifter of one bit
     ROR
     AND #$80
-    ORA NUM1
-    STA NUM1
+    ORA NUM+1
+    STA NUM+1
     TXA
     LSR
-    STA NUM2
+    STA NUM+2
 
         ;  0th letter
-    LDA WORD0
+    LDA WORD
     EOR #$40    ;   Letter index
     CLC
     ROL
@@ -1063,10 +1381,10 @@ W2N:
     TAX
     LDA #$00
     ADC #$00
-    STA NUM3
+    STA NUM+3
     TXA
-    ORA NUM2
-    STA NUM2
+    ORA NUM+2
+    STA NUM+2
     RTS
 
 ; ---------------------------------------------------------------------------------
@@ -1085,7 +1403,7 @@ LOOP0:
     LDA TESTDATA,Y
     CMP #$00
     BEQ DONE
-    STA WORD0,X
+    STA WORD,X
     INX
     INY
 
@@ -1098,7 +1416,7 @@ LOOP0:
     LDX #$00
 LOOP1:
     LDA TESTDATA,Y
-    CMP NUM0,X
+    CMP NUM,X
 ERROR:
     BNE ERROR
     INY
@@ -1147,6 +1465,17 @@ TESTDATA:
 .byte $94,$04,$11,$00
 .byte 0
 
+
+; ---------------------------------------------------------------------------------
+;   Echoes a repeated character
+; ---------------------------------------------------------------------------------
+ECHOR:
+    JSR ECHO
+    DEX
+    CPX #0
+    BNE ECHOR
+    RTS
+
 ; ---------------------------------------------------------------------------------
 ;   Debug helpers
 ; ---------------------------------------------------------------------------------
@@ -1169,18 +1498,26 @@ LL:
     JMP HALT
 
 DBGW:
-    LDA WORD0
+    LDA WORD
     JSR ECHO
-    LDA WORD1
+    LDA WORD+1
     JSR ECHO
-    LDA WORD2
+    LDA WORD+2
     JSR ECHO
-    LDA WORD3
+    LDA WORD+3
     JSR ECHO
-    LDA WORD4
+    LDA WORD+4
     JSR ECHO
     LDA #$20
     JSR ECHO
     RTS
 
 #include "obj/data.asm"
+
+CHARROM:
+        ;   W
+    .byte %00111111
+    .byte %01000000
+    .byte %00110000
+    .byte %01000000
+    .byte %00111111
