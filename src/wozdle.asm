@@ -95,9 +95,14 @@ LOOP1:
     JSR PAGEFEED
 
         ;   Display rules
-    LDA #<MSGRULES
+    LDA #<MSGRULES1
     STA MSG
-    LDA #>MSGRULES
+    LDA #>MSGRULES1
+    STA MSG+1
+    JSR MSGOUT
+    LDA #<MSGRULES2
+    STA MSG
+    LDA #>MSGRULES2
     STA MSG+1
     JSR MSGOUT
 
@@ -162,8 +167,18 @@ CONT3:
 
 REFRESH:
     JSR PAGEFEED        ;   Scroll screen off
+    LDA GUESSCOUNT
+    BNE MAIN            ;   We don't display a message if there are already guesses
+    LDA #<REFRESHMSG
+    STA MSG
+    LDA #>REFRESHMSG
+    STA MSG+1
+    JSR MSGOUT
     JMP MAIN            ;   Redraw game and continue
 .)
+
+REFRESHMSG:
+    .byte "ENTER YOUR WORDS:", $d, $d, $0
 
 WON:
 .(
@@ -954,16 +969,17 @@ MSGRND:
     .byte $d, $d, "     -- press space for new game -- ", 0
 .)
 
-MSGRULES:
+MSGRULES1:
     .byte $0d, $0d,
     .byte "Rules: you must guess a 5 letter word", $0d,
     .byte "       you have 6 tries", $0d
     .byte "       type when the cursor is", $0d
-    .byte "       in the bottom-left corner", $0d,$0d
+    .byte "       in the bottom-left corner", $0d
+    .byte "       space to undo entry", $0d,$0d
     .byte "       ! : Letter placed properly", $0d
-    .byte "       ? : Letter placed improperly", $0d, $0d
-    .byte "       may the woz be with you", $0d, $0d, $0d, $0d, $0d
-    .byte $0d, $00
+    .byte "       ? : Letter placed improperly", $0d,$0d, 0
+MSGRULES2:
+    .byte "       may the woz be with you", $0d, $0d, $0d, $0d, $d, 0
 
 ; ---------------------------------------------------------------------------------
 ;   Reads a vocabulary word into WORD
@@ -974,6 +990,11 @@ GUESSGET:
     LDX #0
 LOOPX:
     JSR KBDGET
+    CMP #" "
+    BNE CONT
+    LDA #1              ; Make sure Z != 1
+    RTS
+CONT:
     STA WORD,X
     JSR ECHO
     LDA #" "
