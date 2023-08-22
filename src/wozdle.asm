@@ -66,6 +66,8 @@ LETTERS = $3E           ;   The 26 letters and what we know about them (WHITE, G
 
 SCANMASK = $58          ;   The scan mask used when drawing a big letter
 TMP = $59
+BIGWIDTH = $5A          ;   With of the big string to display (6 for the title, 5 for the target word)
+BIGCHAR = $5B           ;   The char used to draw big letters
 
 ; ---------------------------------------------------------------------------------
 ;   Main code 
@@ -104,7 +106,11 @@ LOOP1:
     STA MSG
     LDA #>WELCOME
     STA MSG+1
-    JSR MSGOUT
+    LDA #6
+    STA BIGWIDTH
+    LDA #"*"
+    STA BIGCHAR
+    JSR DRAWBIGTEXT
 MAIN:
 
 CONT:
@@ -161,27 +167,23 @@ REFRESH:
 
 WON:
 .(
+    JSR PAGEFEED        ;   Scroll screen off
+
     LDA #<MSGWON1
     STA MSG
     LDA #>MSGWON1
     STA MSG+1
     JSR MSGOUT
 
-    JSR DSPTARGET
-
-    LDA #$d
-    JSR ECHO
     LDA #<TARGET
     STA MSG
     LDA #>TARGET
     STA MSG+1
+    LDA #5
+    STA BIGWIDTH
+    LDA #"*"
+    STA BIGCHAR
     JSR DRAWBIGTEXT
-
-    LDA #<MSGWON2
-    STA MSG
-    LDA #>MSGWON2
-    STA MSG+1
-    JSR MSGOUT
 
     JSR DRAWSUMMARY
 
@@ -190,19 +192,23 @@ WON:
 
 LOST:
 .(
+    JSR PAGEFEED        ;   Scroll screen off
+
     LDA #<MSGLOST1
     STA MSG
     LDA #>MSGLOST1
     STA MSG+1
     JSR MSGOUT
 
-    JSR DSPTARGET
-
-    LDA #<MSGLOST2
+    LDA #<TARGET
     STA MSG
-    LDA #>MSGLOST2
+    LDA #>TARGET
     STA MSG+1
-    JSR MSGOUT
+    LDA #5
+    STA BIGWIDTH
+    LDA #"?"
+    STA BIGCHAR
+    JSR DRAWBIGTEXT
 
     JSR DRAWSUMMARY
 
@@ -226,7 +232,7 @@ DRAWSUMMARY:
     LDA #0
     STA GUESSIX
     JSR DRAWGUESS1
-
+ 
     LDA #" "
     JSR ECHO
     JSR ECHO
@@ -334,9 +340,6 @@ DRAWSUMMARY:
     INC GUESSIX
     JSR DRAWCOL1        ;   Draw colors
 
-    LDA #$d
-    JSR ECHO
-
 
 
     RTS
@@ -376,6 +379,11 @@ DRAWCOL1:
     LDA GUESSIX
     CMP GUESSCOUNT
     BMI CONT
+
+        ;   Could be shared with DRAWGUESS1
+    LDA #" "
+    LDX #10
+    JSR ECHOR
     RTS
 
 CONT:
@@ -412,22 +420,13 @@ LOOP1:
 
 
 MSGWON1:
-    .byte $d, $d, $d, "congratulations, you won wozdle.", $d, $d
-    .byte "the word to find was ", 34
-    .byte 0
-MSGWON2:
-    .byte 34, $d, $d, 0
+    .byte "------- CONGRATULATIONS, YOU WON -------", $d, $d, 0
 
 MSGLOST1:
-    .byte $d, $d, $d, "bzzzt! you have lost.", $d, $d
-    .byte "the word to find was ", 34
-    .byte 0
-MSGLOST2:
-    .byte 34, $d, $d, 0
+    .byte "     YOU LOST. THE TARGET WORD WAS:", $d, $d, $d, 0
 
 MSGSUMMARY:
-    .byte "your answers were:", $d, $d
-    .byte 0
+    .byte $d, "------------- YOUR GUESSES -------------", $d, $d, 0
 
 DSPTARGET:
 .(
@@ -708,26 +707,7 @@ WRD2COL:
 
 
 WELCOME:
-.byte "  *   *  ***  ***** ****  *     *****", $0d
-.byte "  *   * *   * *   * *   * *     *", $0d
-.byte "  *   * *   *    *  *   * *     *", $0d
-.byte "  *   * *   *   *   *   * *     ***", $0d
-.byte "  * * * *   *  *    *   * *     *", $0d
-.byte "  * * * *   * *   * *   * *     *", $0d
-.byte "   * *   ***  ***** ****  ***** *****", $0d, $0d
-; WELCOME:
-.byte $0d,$00
-
-
-    ; .byte $0d
-    ; .byte "  WOZDLE                                "
-    ; .byte "  (BY FRED & ANTOINE STARK)             "
-    ; .byte "                                        "
-    ; .byte "E A T E N ______________________________"
-    ; .byte "?   ?     \Q  W  E  R  T  Y  U  I  O  P "
-    ; .byte "           \A  S  D  F  G  H  J  K _L__/"
-    ; .byte "            \Z__X__C__V__B__N__M__/     "
-    .byte 0
+.byte "WOZDLE"
 
     ;   Print all colors for the current word
 PRTCOLORS:
@@ -1404,6 +1384,7 @@ W2N:
 
     ;   Tests words-num conversions
 TEST:
+.(
     LDA #$0d
     JSR ECHO
     JSR ECHO
@@ -1441,8 +1422,6 @@ ERROR:
 DONE:
     JSR ECHOPASSED
     RTS
-HALT:
-    JMP HALT
 
 ECHOPASSED:
     LDX #$00
@@ -1453,7 +1432,10 @@ LOOP2:
     CMP #$00
     BNE LOOP2
     RTS
+.)
 
+HALT:
+    JMP HALT
 
 MSGPASSED:
 .byte "TEST PASSED"
@@ -1556,10 +1538,30 @@ LOOP:
 
 DRAWBIGTEXTLINE:
 .(
+        ;   Starts with some space to center
+    LDA #40
+    SEC
+    SBC BIGWIDTH
+    SBC BIGWIDTH
+    SBC BIGWIDTH
+    SBC BIGWIDTH
+    SBC BIGWIDTH
+    SBC BIGWIDTH
+    LSR                 ;   Space = (WIDTH-6*BIGWIDTH)/2
+    TAX
+    LDA #" "
+LOOP2:
+    JSR ECHO
+    DEX
+    BNE LOOP2
+
+        ;   Now display one line of characters
     LDY #0
 LOOP:
     LDA (MSG),Y         ;   Character to display
-                        ;   (ACC-'A')*5
+
+        ;   Compute the index in CHARROM (ACC-'A')*5
+
     SEC
     SBC #"A"
     ASL
@@ -1567,15 +1569,16 @@ LOOP:
     ADC (MSG),Y
     SEC
     SBC #"A"
-    TAX
+    TAX                 ;   Index in CHARROM for this char 
+
     TYA
     PHA
-    LDY #05
+    LDY #5              ;   5 columns per character
 LOOP3:
     LDA CHARROM,X
     AND SCANMASK
     BEQ SPACE:
-    LDA #"*"
+    LDA BIGCHAR
     JMP PRINT
 SPACE:
     LDA #" "
@@ -1589,7 +1592,7 @@ PRINT:
     PLA
     TAY
     INY                 ;   Next char
-    CPY #5
+    CPY BIGWIDTH        ;   End of line
     BNE LOOP
     RTS
 .)
