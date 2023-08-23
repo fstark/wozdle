@@ -37,7 +37,7 @@ TARGET = $10    ;   Target word to find (5 bytes) (5 bytes)
 
 ;   Address of a zero-terminated string
 ;   Used as an argument for MSG related functions
-MSG    = $12    ;   Pointer to message to display (2 bytes)
+MSG    = $15    ;   Pointer to message to display (2 bytes)
 
 ; 0=>non exist, 1=>gray, 2=>yellow, 3=>green
 WHITE = 0
@@ -69,6 +69,10 @@ TMP = $59
 BIGWIDTH = $5A          ;   With of the big string to display (6 for the title, 5 for the target word)
 BIGCHAR = $5B           ;   The char used to draw big letters
 
+SYMBOL_GREEN = "!"
+SYMBOL_YELLOW = "?"
+SYMBOL_GRAY = " "
+
 ; ---------------------------------------------------------------------------------
 ;   Main code 
 ; ---------------------------------------------------------------------------------
@@ -93,6 +97,8 @@ LOOP1:
 
         ;   Clear screen
     JSR PAGEFEED
+
+    ; JMP MAIN
 
         ;   Display rules
     JSR MSGINLINE
@@ -191,9 +197,7 @@ WON:
     STA BIGCHAR
     JSR DRAWBIGTEXT
 
-    JSR DRAWSUMMARY
-
-    RTS
+    JMP DRAWSUMMARY
 .)
 
 LOST:
@@ -213,9 +217,7 @@ LOST:
     STA BIGCHAR
     JSR DRAWBIGTEXT
 
-    JSR DRAWSUMMARY
-
-    RTS
+    JMP DRAWSUMMARY
 .)
 
 DRAWSUMMARY:
@@ -223,126 +225,83 @@ DRAWSUMMARY:
     JSR MSGINLINE
     .byte $d, "------------- YOUR GUESSES -------------", $d, $d, 0
 
-    ;line 1
-    LDA #"1"
-    JSR ECHO
-    LDA #":"
-    JSR ECHO
+    JSR MSGINLINE
+    .byte "1:",0
 
     LDA #0
     STA GUESSIX
     JSR DRAWGUESS1
  
-    LDA #" "
-    JSR ECHO
-    JSR ECHO
-    LDA #"2"
-    JSR ECHO
-    LDA #":"
-    JSR ECHO
+    JSR MSGINLINE
+    .byte "  2:",0
 
     INC GUESSIX
     JSR DRAWGUESS1
 
-    LDA #" "
-    JSR ECHO
-    JSR ECHO
-    LDA #"3"
-    JSR ECHO
-    LDA #":"
-    JSR ECHO
+    JSR MSGINLINE
+    .byte "  3:",0
 
     INC GUESSIX
     JSR DRAWGUESS1
-    LDA #" "
-    JSR ECHO
 
     ; line 2
-    LDA #" "
-    JSR ECHO
+    JSR MSGINLINE
+    .byte "  ",0
 
     LDA #0
     STA GUESSIX
     JSR DRAWCOL1        ;   Draw colors
 
-    LDA #" "
-    LDX #04
-    JSR ECHOR
+    JSR MSGINLINE
+    .byte "    ",0
 
     INC GUESSIX
     JSR DRAWCOL1        ;   Draw colors
 
-    LDA #" "
-    LDX #04
-    JSR ECHOR
+    JSR MSGINLINE
+    .byte "    ",0
 
     INC GUESSIX
     JSR DRAWCOL1        ;   Draw colors
 
-    LDA #$d
-    JSR ECHO
-    JSR ECHO
-
-    ;line 3
-    LDA #"4"
-    JSR ECHO
-    LDA #":"
-    JSR ECHO
+    JSR MSGINLINE
+    .byte $d,$d,"4:",0
 
     LDA #3
     STA GUESSIX
     JSR DRAWGUESS1
 
-    LDA #" "
-    JSR ECHO
-    JSR ECHO
-    LDA #"5"
-    JSR ECHO
-    LDA #":"
-    JSR ECHO
+    JSR MSGINLINE
+    .byte "  5:",0
 
     INC GUESSIX
     JSR DRAWGUESS1
 
-    LDA #" "
-    JSR ECHO
-    JSR ECHO
-    LDA #"6"
-    JSR ECHO
-    LDA #":"
-    JSR ECHO
+    JSR MSGINLINE
+    .byte "  6:",0
 
     INC GUESSIX
     JSR DRAWGUESS1
-
-    LDA #" "
-    JSR ECHO
 
     ; line 4
-    LDA #" "
-    JSR ECHO
+    JSR MSGINLINE
+    .byte "  ",0
 
     LDA #3
     STA GUESSIX
     JSR DRAWCOL1        ;   Draw colors
 
-    LDA #" "
-    LDX #04
-    JSR ECHOR
+    JSR MSGINLINE
+    .byte "    ",0
 
     INC GUESSIX
     JSR DRAWCOL1        ;   Draw colors
 
-    LDA #" "
-    LDX #04
-    JSR ECHOR
+    JSR MSGINLINE
+    .byte "    ",0
 
     INC GUESSIX
-    JSR DRAWCOL1        ;   Draw colors
-
-
-
-    RTS
+    JMP DRAWCOL1        ;   Draw colors
 .)
 
 DRAWGUESS1:
@@ -354,23 +313,11 @@ DRAWGUESS1:
 
     LDA #" "
     LDX #10
-    JSR ECHOR
-    RTS
+    JMP ECHOR
 
 CONT:
     JSR FETCHHISTORY    ;   WORD = HISTORY[GUESSIX]
-
-    LDX #0
-LOOP2:
-    LDA WORD,X
-    JSR ECHO
-    LDA #" "
-    JSR ECHO
-    INX
-    CPX #5
-    BNE LOOP2
-
-    RTS
+    JMP PRTWORD
 .)
 
 DRAWCOL1:
@@ -389,7 +336,34 @@ DRAWCOL1:
 CONT:
     JSR FETCHHISTORY    ;   WORD = HISTORY[GUESSIX]
     JSR WRD2COL         ;   Update the color status
-    JSR PRTCOLORS       ;   Print colors symbols
+    JMP PRTCOLORS       ;   Print colors symbols
+.)
+
+    ;   Prints the word, separated by spaces
+PRTWORD:
+.(
+    LDX #0
+LOOP2:
+    LDA WORD,X
+    JSR ECHO
+    LDA #" "
+    JSR ECHO
+    INX
+    CPX #5
+    BNE LOOP2
+
+    RTS
+.)
+
+; ---------------------------------------------------------------------------------
+;   Echoes a repeated character
+; ---------------------------------------------------------------------------------
+ECHOR:
+.(
+    JSR ECHO
+    DEX
+    CPX #0
+    BNE ECHOR
     RTS
 .)
 
@@ -418,122 +392,58 @@ LOOP1:
     RTS
 .)
 
-
-DSPTARGET:
-.(
-    LDX #$0
-LOOP:
-    LDA TARGET,X
-    JSR ECHO
-    INX
-    CPX #5
-    BNE LOOP
-    RTS
-.)
-
 ; ---------------------------------------------------------------------------------
 ;   Draw a guess line (guess, colors, keyboard)
 ;   two entry points, one is used if redrawing the game fully
 ;   second durint play (as the input routine already displayed the word)
 ; ---------------------------------------------------------------------------------
 DRAWGUESS:
-                        ; Multiply GUESSIX by 5
-    LDA GUESSIX
-    ASL
-    ASL
-    ADC GUESSIX
-
-                        ; Copy the guess in WORD while
-    TAX
-    LDY #0
-        ; Transfers from X to Y
-    JSR CPYECHO1
-    JSR CPYECHO1
-    JSR CPYECHO1
-    JSR CPYECHO1
-    JSR CPYECHO1
+    JSR FETCHHISTORY
+    JSR PRTWORD
 
 DRAWGUESS2:
-
     LDA GUESSIX
-    CLC
-    ADC #1
-    CMP GUESSCOUNT
-    BNE SKIPKBD1
-
-    JSR MSGINLINE
-    .byte "______________________________", 0
-    JMP CONTKBD1
-
-SKIPKBD1:
-    LDA #$0d
-    JSR ECHO
-
-CONTKBD1:
-    JSR WRD2COL         ;   Update the color status
-    JSR PRTCOLORS       ;   Print colors symbols
-
-    LDA GUESSIX ; ### Ugly duplication
     CLC
     ADC #1
     CMP GUESSCOUNT
     BNE SKIPKBD
 
-    LDA #<KBD0
-    STA MSG
-    LDA #>KBD0
-    STA MSG+1
-    JSR DRAWKBDLINE
+    JSR MSGINLINE
+    .byte "______________________________", 0
+    JSR WRD2COL         ;   Update the color status
+    JSR PRTCOLORS       ;   Print colors symbols
 
-    LDA #<KBD1
-    STA MSG
-    LDA #>KBD1
-    STA MSG+1
-    JSR DRAWKBDLINE
-
-    LDA #<KBD2
-    STA MSG
-    LDA #>KBD2
-    STA MSG+1
-    JSR DRAWKBDLINE
-    RTS
+    JMP DRAWKBD
 
 SKIPKBD:
-    LDA #$0d
+    LDA #$d
     JSR ECHO
-    JSR ECHO
-    JSR ECHO
+    JSR WRD2COL         ;   Update the color status
+    JSR PRTCOLORS       ;   Print colors symbols
+    JSR MSGINLINE
+    .byte $d,$d,$d,0
 
     RTS
 
-CPYECHO1:
-    LDA HISTORY,X
-    STA WORD,Y
-    JSR ECHO
-    LDA #" "
-    JSR ECHO
-    INX
-    INY
-    RTS
 
     ;   Draws a keyboard line
     ;   Remove letters if unavailable
     ;   Follows letter by '!' or '?' depending on color
-DRAWKBDLINE:
+DRAWKBD:
 .(
     LDY #$00
 LOOP:
-    LDA (MSG),Y
+    LDA KBDTEXT,Y
     BEQ END
 
         ;   If not a letter, skip
-    CMP #"A"
-    BMI NONLETTER
     CMP #"Z"+1
     BPL NONLETTER
+    CMP #"A"
+    BMI NONLETTER
 
         ;   Get the index in the LETTERS state
-    SEC
+        ;   Carry is already cleared by the previous failed
     SBC #"A"
     TAX
 
@@ -542,66 +452,59 @@ LOOP:
 
     CMP #WHITE      ;   Letter has never been used
     BNE CONT1
-    LDA (MSG),Y
-    JSR ECHO
+    LDA KBDTEXT,Y
     JMP CONT4
 
 CONT1:
     CMP #GRAY       ;   Letter is not in the word
     BNE CONT2
     INY             ;   We duplicate the next character
-    LDA (MSG),Y
-    JSR ECHO
+    LDA KBDTEXT,Y
     JSR ECHO
     JMP CONT4
 
 CONT2:
     CMP #YELLOW     ;   Letter is somewhere
     BNE CONT3
-    LDA (MSG),Y     ;   We draw the letter
+    LDA KBDTEXT,Y     ;   We draw the letter
     JSR ECHO
     INY
-    LDA #"?"        ;   Followed by a '?'
-    JSR ECHO
+    LDA #SYMBOL_YELLOW        ;   Followed by a '?'
     JMP CONT4
 
 CONT3:
                     ;   We know we are green
-
-    LDA (MSG),Y     ;   We draw the letter
+    LDA KBDTEXT,Y     ;   We draw the letter
     JSR ECHO
     INY
-    LDA #"!"        ;   Followed by a '!'
-    JSR ECHO
+    LDA #SYMBOL_GREEN        ;   Followed by a '!'
     JMP CONT4
 
 NONLETTER:
-    JSR ECHO
-
 CONT4:
+    JSR ECHO
     INY
     JMP LOOP
 END:
     RTS
 .)
 
-KBD0:
-    .byte "\Q  W  E  R  T  Y  U  I  O  P ", 0
-KBD1:
-    .byte "           \A  S  D  F  G  H  J  K _L__/", 0
-KBD2:
+KBDTEXT:
+    .byte "\Q  W  E  R  T  Y  U  I  O  P "
+    .byte "           \A  S  D  F  G  H  J  K _L__/"
     .byte "            \Z__X__C__V__B__N__M__/     ", 0
 
-;   Updates the keyboard status, win/lose, game turn, etc...
+;   Updates the keyboard status, update history and game turn
 UPDATE:
 .(
     JSR WRD2COL         ;   Get current color status
 
+            ;   Update the LETTERS array with the new COLORS if needed
     LDX #0
 LOOP:
     LDA WORD,X
-    SEC                 ;   Beware SBC works the opposite of what you may think
-    SBC #$41
+    SEC                 ;   Beware SBC works the opposite way of what you may think
+    SBC #"A"
     TAY
     LDA COLORS,X
     CMP LETTERS,Y       ;   Update only if status is "better"
@@ -639,22 +542,17 @@ SKIP:
 .)
 
 
-    JSR TEST
-    ; JSR DBGVOCDUMP
-
-    JSR RNDINIT
-    LDA #">"
-    JSR ECHO
-    JSR DBGW
-
-
 ; Update color state according to current word
 WRD2COL:
+.(
         ;   Compare WORD and TARGET according to Wozdle rules
 
         ;   Fills the COLORS array with the correct color rules
+
+        ;   Everything by default
     JSR SETALLGRAY
 
+        ;   Find the greens and exclude them
     LDA #0
     STA GUESSCHARIX
     JSR SETGREEN
@@ -667,6 +565,7 @@ WRD2COL:
     INC GUESSCHARIX
     JSR SETGREEN
 
+        ;   Find the yellows and exclude them
     LDA #0
     STA GUESSCHARIX
     JSR SETYELLOW
@@ -679,16 +578,92 @@ WRD2COL:
     INC GUESSCHARIX
     JSR SETYELLOW
 
-    JSR UNEXCLUDE
+        ; SETYELLOW and SETGREEN has excluded chars by ORing them with $80
+    JMP UNEXCLUDE
 
-    ; LDA #$0d
-    ; JSR ECHO
-    ; LDA #" "
-    ; JSR ECHO
-    ; JSR PRTCOLORS
+        ;   Init word colors to all gray
+    SETALLGRAY:
+    .(
+        LDA #GRAY
+        STA COLORS
+        STA COLORS+1
+        STA COLORS+2
+        STA COLORS+3
+        STA COLORS+4
+        RTS
+    .)
 
-    RTS
+        ;   Test if GUESSCHARIX whould be greened
+    SETGREEN:
+    .(
+        LDY GUESSCHARIX         ;   Load guess character
+        LDA WORD,Y
+        CMP TARGET,Y      ;   At same place in target?
+        BNE DONE
+        JSR EXCLUDE         ;   We now exlude this char
+        LDA #GREEN          ;   Is green
+        STA COLORS,Y
+    DONE:
+        RTS
+    .)
 
+        ;   Test if GUESSCHARIX should be yellowed.
+    SETYELLOW:
+    .(
+        LDY GUESSCHARIX         ;   Load guess character
+        LDA COLORS,Y      ;   Skip green
+        CMP #GREEN
+        BEQ DONE
+        LDA WORD,Y
+        LDY #$0            ;   Loop over target
+    LOOP:
+        CMP TARGET,Y
+        BNE CONT
+        JSR EXCLUDE         ;   If found, exclude this letter of target
+                            ;   from the next calculations
+        LDA #YELLOW         ;   Sets the letter color
+        LDY GUESSCHARIX
+        STA COLORS,Y
+        RTS
+    CONT:
+        INY
+        CPY #5
+        BNE LOOP
+    DONE:
+        RTS
+    .)
+
+        ;   Excludes the character at index Y
+    EXCLUDE:
+    .(
+        LDA #$80
+        ORA TARGET,Y
+        STA TARGET,Y
+        RTS
+    .)
+
+        ;   Clear all exclusion flags
+    UNEXCLUDE:
+    .(
+        LDA #$7F
+        TAX
+        AND TARGET
+        STA TARGET
+        TXA
+        AND TARGET+1
+        STA TARGET+1
+        TXA
+        AND TARGET+2
+        STA TARGET+2
+        TXA
+        AND TARGET+3
+        STA TARGET+3
+        TXA
+        AND TARGET+4
+        STA TARGET+4
+        RTS
+    .)
+.)
 
 
 
@@ -703,15 +678,15 @@ LOOP:
     LDA COLORS,Y
     CMP #GREEN
     BNE CONT1
-    LDA #"!"
+    LDA #SYMBOL_GREEN
     JMP CONT3
 CONT1:
     CMP #YELLOW
     BNE CONT2
-    LDA #"?"
+    LDA #SYMBOL_YELLOW
     JMP CONT3
 CONT2:
-    LDA #" "
+    LDA #SYMBOL_GRAY
 CONT3:
     JSR ECHO
     LDA #" "
@@ -722,92 +697,6 @@ CONT3:
     RTS
 .)
 
-    ;   Init word colors to all gray
-SETALLGRAY:
-    LDA #GRAY
-    STA COLORS
-    STA COLORS+1
-    STA COLORS+2
-    STA COLORS+3
-    STA COLORS+4
-    RTS
-
-    ;   Test if GUESSCHARIX whould be greened
-SETGREEN:
-.(
-    LDY GUESSCHARIX         ;   Load guess character
-    LDA WORD,Y
-    CMP TARGET,Y      ;   At same place in target?
-    BNE DONE
-    JSR EXCLUDE         ;   We now exlude this char
-    LDA #GREEN          ;   Is green
-    STA COLORS,Y
-DONE:
-    RTS
-.)
-
-    ;   Test if GUESSCHARIX should be yellowed.
-SETYELLOW:
-.(
-    LDY GUESSCHARIX         ;   Load guess character
-    LDA COLORS,Y      ;   Skip green
-    CMP #GREEN
-    BEQ DONE
-    LDA WORD,Y
-    LDY #$0            ;   Loop over target
-LOOP:
-    CMP TARGET,Y
-    BNE CONT
-    JSR EXCLUDE         ;   If found, exclude this letter of target
-                        ;   from the next calculations
-    LDA #YELLOW         ;   Sets the letter color
-    LDY GUESSCHARIX
-    STA COLORS,Y
-    RTS
-CONT:
-    INY
-    CPY #5
-    BNE LOOP
-DONE:
-    RTS
-.)
-
-    ;   Excludes the character at index Y
-EXCLUDE:
-    LDA #$80
-    ORA TARGET,Y
-    STA TARGET,Y
-    RTS
-
-    ;   Clear all exclusion flags
-UNEXCLUDE:
-    LDA #$7F
-    TAX
-    AND TARGET
-    STA TARGET
-    TXA
-    AND TARGET+1
-    STA TARGET+1
-    TXA
-    AND TARGET+2
-    STA TARGET+2
-    TXA
-    AND TARGET+3
-    STA TARGET+3
-    TXA
-    AND TARGET+4
-    STA TARGET+4
-    RTS
-
-    LDA #$7f
-    STA <ANSINX
-    LDA #$01
-    STA <ANSINX+1
-
-    JSR ANSSEEK
-    JSR N2W
-    JSR DBGW
-    JMP HALT
 
 ; Seek answer of index ANSWINX
 ; Stored in NUM
@@ -820,12 +709,12 @@ ANSSEEK:
     LDA #>ANSWERS
     STA ANSPTR+1
 
-LOOP1:
+NEXTBYTE:
     JSR ANSNEXT     ;   Loads 8 bits of answers
     STA ANSCUR
 
-    LDX #$08
-LOOP2:
+    LDX #8
+NEXTBIT:
     JSR NEXTVOCPTR  ;   Jumps vocabulary pointer to next word
 
     ROL ANSCUR
@@ -844,28 +733,26 @@ SKIPDEC:
 
 CONTINUE:
     DEX
-    BNE LOOP2
-    JMP LOOP1
+    BNE NEXTBIT
+
+    JMP NEXTBYTE
 
 DONE:
     RTS
 
-    ; Loads A with the next 8 bitmap of answers and increment answer ptr
-    ; note could be faster is pointer is one *behind*
-ANSNEXT:
-    LDA #$00
-    TAY
-    LDA (ANSPTR),Y
-    TAY
-    INC ANSPTR
-    BNE CONT
-    INC ANSPTR+1
-CONT:
-    TYA
-    RTS
+        ; Loads A with the next 8 bitmap of answers and increment answer ptr
+        ;   (We could win a byte as X is always zero, and LDA (ANSPTR,X) would be LDA (ANSPTR),Y)
+    ANSNEXT:
+    .(
+        LDY #0
+        LDA (ANSPTR),Y
+        INC ANSPTR
+        BNE CONT
+        INC ANSPTR+1
+    CONT:
+        RTS
+    .)
 .)
-
-    JMP HALT
 
 ; ---------------------------------------------------------------------------------
 ;   Generates a random TARGET word
@@ -890,31 +777,28 @@ CONT:
     LDA KBDCR           ;   Key pressed?
     BPL LOOP1           ;   No
     LDA KBD             ;   Key pressed
-    AND #$3f            ;   Last 6 bits
-    CMP #$20            ;   Space?
+    AND #$7f            ;   Last 6 bits
+    CMP #"A"
+    BEQ HACK_APPLE
+    CMP #"S"
+    BEQ HACK_STARK
+    CMP #" "            ;   Space?
     BNE LOOP1           ;   Nope
-
-    LDA #$d
-    JSR ECHO
 
         ; Get the number mod ANSCOUNT (2309)
         ; By adding ANSCOUNT until we have a carry
-LOOP2:
+MODULO:
     CLC
+MODULOOP:
     LDA ANSINX
     ADC #<ANSCOUNT
     STA ANSINX
     LDA ANSINX+1
     ADC #>ANSCOUNT
     STA ANSINX+1
-    BCC LOOP2
+    BCC MODULOOP
 
-    ; Hack for apple
-    ; LDA #96
-    ; STA ANSINX
-    ; LDA #00
-    ; STA ANSINX+1
-
+SEEK:
         ;   Here ANSINX is a random number between 0 and ANSCOUNT-1
     JSR ANSSEEK         ;   We load the corresponding vocabulatory enrty
                         ;   (note the time to load gives the player an indication of the place of the word)
@@ -931,7 +815,24 @@ LOOP2:
     LDA WORD+4
     STA TARGET+4
 
-    RTS
+    LDA #$d
+    JMP ECHO
+
+HACK_APPLE:
+    ; Hack for apple
+    LDA #96
+    STA ANSINX
+    LDA #00
+    STA ANSINX+1
+    JMP SEEK
+
+HACK_STARK:
+    ; Hack for stark
+    LDA #<1904
+    STA ANSINX
+    LDA #>1904
+    STA ANSINX+1
+    JMP SEEK
 .)
 
 ; ---------------------------------------------------------------------------------
@@ -944,16 +845,18 @@ GUESSGET:
 LOOPX:
     JSR KBDGET
     CMP #" "
-    BNE CONT
-    LDA #1              ; Make sure Z != 1
-    RTS
+    BEQ EXIT
+    CMP #"A"
+    BMI LOOPX
+    CMP #"Z"+1
+    BPL LOOPX
 CONT:
     STA WORD,X
     JSR ECHO
     LDA #" "
     JSR ECHO
     INX
-    CPX #05
+    CPX #5
     BNE LOOPX
 
     JSR W2N             ; As num
@@ -997,6 +900,9 @@ LOOP:
     ORA NUM
 
     RTS                 ;   Z = 1 if valid guess
+EXIT:
+    LDA #1              ; Make sure Z != 1
+    RTS
 .)
 
 ; ---------------------------------------------------------------------------------
@@ -1026,21 +932,21 @@ CONT2:
     LDA MSG
     PHA
     RTS
-; ---------------------------------------------------------------------------------
-;   Print message
-; ---------------------------------------------------------------------------------
-MSGOUT:
-.(
-    LDY #$00
-LOOP:
-    LDA (MSG),Y
-    BEQ END
-    JSR ECHO
-    INY
-    JMP LOOP
-END:
-    RTS
-.)
+    ; ---------------------------------------------------------------------------------
+    ;   Print message
+    ; ---------------------------------------------------------------------------------
+    MSGOUT:
+    .(
+        LDY #$00
+    LOOP:
+        LDA (MSG),Y
+        BEQ END
+        JSR ECHO
+        INY
+        JMP LOOP
+    END:
+        RTS
+    .)
 .)
 
 
@@ -1064,36 +970,31 @@ LOOP:
 ; ---------------------------------------------------------------------------------
 
 KBDGET:
+.(
     LDA KBDCR
     BPL KBDGET
     LDA KBD
     AND #$7F
     ; JSR PRBYTE
     RTS
-
-KBDPEEK:
-.(
-    LDA KBDCR
-    BMI DONE
-    LDA #$00
-    RTS
-DONE:
-    LDA KBD
-    RTS
 .)
-
 
 ; ---------------------------------------------------------------------------------
 ;   Num management support routines
 ; ---------------------------------------------------------------------------------
 
 NUMCLR:         ;   Sets 'aaaaa' as the current numerical word
+.(
     LDA #$00
     STA NUM
     STA NUM+1
     STA NUM+2
     STA NUM+3
+    JMP NUMADJUST
+.)
+
 NUMADJUST:      ;   Adjusts num by adding 'aaaaa'
+.(
     CLC
     LDA #$21
     ADC NUM
@@ -1114,74 +1015,10 @@ NUMADJUST:      ;   Adjusts num by adding 'aaaaa'
     STA VOCPTR+1
 
     RTS
-
-
-
-
-
-
-;   Note: preserves X
-NEXTVOCPTR1:
-        ;   Adds 1 bytes (128-16383)
-    LDA (VOCPTR),Y
-    AND #$7f
-    CLC
-    ADC NUM
-    STA NUM
-
-        ;   #### Not the right way to add numbers!
-    LDA #$00
-    ADC NUM+1
-    STA NUM+1
-    LDA #$00
-    ADC NUM+2
-    STA NUM+2
-    LDA #$00
-    ADC NUM+3
-    STA NUM+3
-
-    CLC
-    LDA #$01
-    ADC VOCPTR
-    STA VOCPTR
-    LDA #$00
-    ADC VOCPTR+1
-    STA VOCPTR+1
-
-    RTS
-
-NEXTVOCPTR2:
-        ;   Adds 2 bytes (128-16383)
-    LDY #$01
-    LDA (VOCPTR),Y
-    CLC
-    ADC NUM
-    STA NUM
-
-    DEY
-    LDA (VOCPTR),Y
-    AND #$3f
-    ADC NUM+1
-    STA NUM+1
-
-    LDA #$00
-    ADC NUM+2
-    STA NUM+2
-    LDA #$00
-    ADC NUM+3
-    STA NUM+3
-
-    CLC
-    LDA #$02
-    ADC VOCPTR
-    STA VOCPTR
-    LDA #$00
-    ADC VOCPTR+1
-    STA VOCPTR+1
-
-    RTS
+.)
 
 NEXTVOCPTR:
+.(
     LDY #$00
     LDA (VOCPTR),Y
     ROL
@@ -1189,38 +1026,96 @@ NEXTVOCPTR:
     ROL
     BCC NEXTVOCPTR2
 
-NEXTVOCPTR3:
-        ;   Adds 3 bytes (16384-)
-    LDY #$02
-    LDA (VOCPTR),Y
-    CLC
-    ADC NUM
-    STA NUM
+    .(
+            ;   Adds 3 bytes (16384-)
+        LDY #$02
+        LDA (VOCPTR),Y
+        CLC
+        ADC NUM
+        STA NUM
 
-    DEY
-    LDA (VOCPTR),Y
-    ADC NUM+1
-    STA NUM+1
+        DEY
+        LDA (VOCPTR),Y
+        ADC NUM+1
+        STA NUM+1
 
-    DEY
-    LDA (VOCPTR),Y
-    AND #$3f
-    ADC NUM+2
-    STA NUM+2
+        DEY
+        LDA (VOCPTR),Y
+        AND #$3f
+        ADC NUM+2
+        STA NUM+2
 
-    LDA #$00
-    ADC NUM+3
-    STA NUM+3
+        BCC DONE
+        INC NUM+3
 
-    CLC
-    LDA #$03
-    ADC VOCPTR
-    STA VOCPTR
-    LDA #$00
-    ADC VOCPTR+1
-    STA VOCPTR+1
+    DONE:
+        CLC
+        LDA #$03
+        ADC VOCPTR
+        STA VOCPTR
 
-    RTS
+        BCC DONE2
+        INC VOCPTR+1
+
+    DONE2:
+        RTS
+    .)
+
+    ;   Note: preserves X
+    NEXTVOCPTR1:
+    .(
+            ;   Adds 1 bytes (128-16383)
+        LDA (VOCPTR),Y
+        AND #$7f
+        CLC
+        ADC NUM
+        STA NUM
+
+        BCC DONE
+        INC NUM+1
+        BNE DONE
+        INC NUM+2
+        BNE DONE
+        INC NUM+3
+    DONE:
+        INC VOCPTR
+        BNE DONE2
+        INC VOCPTR+1
+    DONE2:
+        RTS
+    .)
+
+    NEXTVOCPTR2:
+    .(
+            ;   Adds 2 bytes (128-16383), big endian
+        LDY #$01
+        LDA (VOCPTR),Y
+        CLC
+        ADC NUM
+        STA NUM
+
+        DEY
+        LDA (VOCPTR),Y
+        AND #$3f
+        ADC NUM+1
+        STA NUM+1
+
+        BCC DONE
+        INC NUM+2
+        BNE DONE
+        INC NUM+3
+
+    DONE:
+        CLC
+        LDA #$02
+        ADC VOCPTR
+        STA VOCPTR
+        BCC DONE2
+        INC VOCPTR+1
+    DONE2:
+        RTS
+    .)
+.)
 
 ; ---------------------------------------------------------------------------------
 ;   Words to numbers back and forth mapping
@@ -1462,16 +1357,6 @@ TESTDATA:
 .byte $94,$04,$11,$00
 .byte 0
 
-
-; ---------------------------------------------------------------------------------
-;   Echoes a repeated character
-; ---------------------------------------------------------------------------------
-ECHOR:
-    JSR ECHO
-    DEX
-    CPX #0
-    BNE ECHOR
-    RTS
 
 ; ---------------------------------------------------------------------------------
 ;   Debug helpers
