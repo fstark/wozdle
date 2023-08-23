@@ -32,12 +32,12 @@ ANSINX = $0D    ;   Index of answer searched in answers (2 bytes)
 ;   Contains the 8 bits of the current answer bitmap
 ANSCUR = $0F    ;   Workin area, current 8 bits of answer bitmap (1 byte)
 
-;   Address of a zero-terminated stringd
-;   Used as an argument for MSG related functions
-MSG    = $10    ;   Pointer to message to display (2 bytes)
-
 ;   This is the word that the player must find
-TARGET = $12    ;   Target word to find (5 bytes) (5 bytes)
+TARGET = $10    ;   Target word to find (5 bytes) (5 bytes)
+
+;   Address of a zero-terminated string
+;   Used as an argument for MSG related functions
+MSG    = $12    ;   Pointer to message to display (2 bytes)
 
 ; 0=>non exist, 1=>gray, 2=>yellow, 3=>green
 WHITE = 0
@@ -75,10 +75,10 @@ BIGCHAR = $5B           ;   The char used to draw big letters
 
 START:
 .(
-        ;   ZP variables initialisation
 
+        ;   ZP variables initialisation
         ;   GUESSCOUNT = 0
-    LDA #$00
+    LDA #0
     STA GUESSCOUNT
 
         ;   LETTERS [0..25] = WHITE
@@ -95,21 +95,23 @@ LOOP1:
     JSR PAGEFEED
 
         ;   Display rules
-    LDA #<MSGRULES1
-    STA MSG
-    LDA #>MSGRULES1
-    STA MSG+1
-    JSR MSGOUT
-    LDA #<MSGRULES2
-    STA MSG
-    LDA #>MSGRULES2
-    STA MSG+1
-    JSR MSGOUT
+    JSR MSGINLINE
+    .byte $0d, $0d,
+    .byte "Rules: you must guess a 5 letter word", $0d,
+    .byte "       you have 6 tries", $0d
+    .byte "       type when the cursor is", $0d
+    .byte "       in the bottom-left corner", $0d
+    .byte "       space to undo entry", $0d,$0d
+    .byte "       ! : Letter placed properly", $0d
+    .byte "       ? : Letter placed improperly", $0d,$0d, 0
+
+    JSR MSGINLINE
+    .byte "       may the woz be with you", $0d, $0d, $0d, $0d, $d, 0
 
         ;   Display large welcome message
-    LDA #<WELCOME
+    LDA #<WOZDLE
     STA MSG
-    LDA #>WELCOME
+    LDA #>WOZDLE
     STA MSG+1
     LDA #6
     STA BIGWIDTH
@@ -120,30 +122,27 @@ MAIN:
 
 CONT:
         ; We draw all the guesses
-    LDA #$0
+    LDA #0
     STA GUESSIX
 LOOP2:
     LDA GUESSCOUNT
     CMP GUESSIX
-    BEQ CONT2           ;   Stop at GUESSCOUNT
+    BEQ CONTGUESS       ;   Stop at GUESSCOUNT
     JSR DRAWGUESS       ;   Draw guess (automatically includes the keyboard if needed)
     INC GUESSIX
     JMP LOOP2
 
-CONT2:
+CONTGUESS:
     JSR GUESSGET        ;   Ask user for a guess
     BNE REFRESH         ;   If we don't know the guess, we need to redraw everything
 
-    JSR UPDATE          ;   Update keyboard colors and stuff
-
     LDA GUESSCOUNT      ;   So the draw knows the keyboard is needed
-    SEC
-    SBC #1
-    STA GUESSIX
+    STA GUESSIX         ;   note that GUESSCOUNT will be inc in update
+    JSR UPDATE          ;   Update keyboard colors and stuff
     JSR DRAWGUESS2      ;   Draws the guess, without the guessed word
 
     ; HERE WE TEST FOR END GAME STATUS
-        ;   Check if won
+        ;   Check if won (GREEN is 3)
     LDA COLORS
     AND COLORS+1
     AND COLORS+2
@@ -159,7 +158,7 @@ CONT3:
         ;   Check if lost
     LDA GUESSCOUNT
     CMP #MAXGUESS
-    BNE CONT2           ;   Ask for next guess  
+    BNE CONTGUESS       ;   Ask for next guess  
 
         ;   Player lost
     JSR LOST
@@ -169,26 +168,18 @@ REFRESH:
     JSR PAGEFEED        ;   Scroll screen off
     LDA GUESSCOUNT
     BNE MAIN            ;   We don't display a message if there are already guesses
-    LDA #<REFRESHMSG
-    STA MSG
-    LDA #>REFRESHMSG
-    STA MSG+1
-    JSR MSGOUT
+    JSR MSGINLINE
+    .byte "ENTER YOUR WORDS:", $d, $d, $0
     JMP MAIN            ;   Redraw game and continue
 .)
-
-REFRESHMSG:
-    .byte "ENTER YOUR WORDS:", $d, $d, $0
 
 WON:
 .(
     JSR PAGEFEED        ;   Scroll screen off
 
-    LDA #<MSGWON1
-    STA MSG
-    LDA #>MSGWON1
-    STA MSG+1
-    JSR MSGOUT
+    JSR MSGINLINE
+    .byte "------- CONGRATULATIONS, YOU WON -------", $d, $d, 0
+
 
     LDA #<TARGET
     STA MSG
@@ -209,11 +200,8 @@ LOST:
 .(
     JSR PAGEFEED        ;   Scroll screen off
 
-    LDA #<MSGLOST1
-    STA MSG
-    LDA #>MSGLOST1
-    STA MSG+1
-    JSR MSGOUT
+    JSR MSGINLINE
+    .byte "     YOU LOST. THE TARGET WORD WAS:", $d, $d, $d, 0
 
     LDA #<TARGET
     STA MSG
@@ -232,11 +220,8 @@ LOST:
 
 DRAWSUMMARY:
 .(
-    LDA #<MSGSUMMARY
-    STA MSG
-    LDA #>MSGSUMMARY
-    STA MSG+1
-    JSR MSGOUT
+    JSR MSGINLINE
+    .byte $d, "------------- YOUR GUESSES -------------", $d, $d, 0
 
     ;line 1
     LDA #"1"
@@ -434,15 +419,6 @@ LOOP1:
 .)
 
 
-MSGWON1:
-    .byte "------- CONGRATULATIONS, YOU WON -------", $d, $d, 0
-
-MSGLOST1:
-    .byte "     YOU LOST. THE TARGET WORD WAS:", $d, $d, $d, 0
-
-MSGSUMMARY:
-    .byte $d, "------------- YOUR GUESSES -------------", $d, $d, 0
-
 DSPTARGET:
 .(
     LDX #$0
@@ -485,11 +461,8 @@ DRAWGUESS2:
     CMP GUESSCOUNT
     BNE SKIPKBD1
 
-    LDA #<KBDTOP
-    STA MSG
-    LDA #>KBDTOP
-    STA MSG+1
-    JSR MSGOUT
+    JSR MSGINLINE
+    .byte "______________________________", 0
     JMP CONTKBD1
 
 SKIPKBD1:
@@ -612,8 +585,6 @@ END:
     RTS
 .)
 
-KBDTOP:
-    .byte "______________________________", 0
 KBD0:
     .byte "\Q  W  E  R  T  Y  U  I  O  P ", 0
 KBD1:
@@ -721,7 +692,7 @@ WRD2COL:
 
 
 
-WELCOME:
+WOZDLE:
 .byte "WOZDLE"
 
     ;   Print all colors for the current word
@@ -902,11 +873,8 @@ CONT:
 RNDINIT:
 .(
         ;   Display user message
-    LDA #<MSGRND
-    STA MSG
-    LDA #>MSGRND
-    STA MSG+1
-    JSR MSGOUT
+    JSR MSGINLINE
+    .byte $d, $d, "     -- press space for new game -- ", 0
 
         ;   Eats any key already pressed
     LDA KBD           
@@ -964,22 +932,7 @@ LOOP2:
     STA TARGET+4
 
     RTS
-
-MSGRND:
-    .byte $d, $d, "     -- press space for new game -- ", 0
 .)
-
-MSGRULES1:
-    .byte $0d, $0d,
-    .byte "Rules: you must guess a 5 letter word", $0d,
-    .byte "       you have 6 tries", $0d
-    .byte "       type when the cursor is", $0d
-    .byte "       in the bottom-left corner", $0d
-    .byte "       space to undo entry", $0d,$0d
-    .byte "       ! : Letter placed properly", $0d
-    .byte "       ? : Letter placed improperly", $0d,$0d, 0
-MSGRULES2:
-    .byte "       may the woz be with you", $0d, $0d, $0d, $0d, $d, 0
 
 ; ---------------------------------------------------------------------------------
 ;   Reads a vocabulary word into WORD
@@ -1047,6 +1000,33 @@ LOOP:
 .)
 
 ; ---------------------------------------------------------------------------------
+;   Print inline message
+; ---------------------------------------------------------------------------------
+MSGINLINE:
+.(
+    PLA
+    STA MSG
+    PLA
+    STA MSG+1
+    INC MSG
+BNE CONT1
+    INC MSG+1
+CONT1:
+    JSR MSGOUT
+    CLC
+    ; DEY
+    TYA
+    ADC MSG
+    STA MSG
+    BCC CONT2
+    INC MSG+1
+CONT2:
+    LDA MSG+1
+    PHA
+    LDA MSG
+    PHA
+    RTS
+; ---------------------------------------------------------------------------------
 ;   Print message
 ; ---------------------------------------------------------------------------------
 MSGOUT:
@@ -1061,6 +1041,8 @@ LOOP:
 END:
     RTS
 .)
+.)
+
 
 ; ---------------------------------------------------------------------------------
 ;   Scrolls a blank new screen
