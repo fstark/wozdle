@@ -1147,6 +1147,7 @@ NEXTVOCPTR1:
     ADC NUM
     STA NUM
 
+        ;   #### Not the right way to add numbers!
     LDA #$00
     ADC NUM+1
     STA NUM+1
@@ -1373,7 +1374,7 @@ W2N:
     LDA WORD+1
     EOR #$40    ;   Letter index
     TAX
-    ROR         ;   Could do better if NUM+1 was already shifter of one bit
+    ROR         ;   Could do better if NUM+1 was already shifted one bit
     ROR
     AND #$80
     ORA NUM+1
@@ -1569,6 +1570,7 @@ DRAWBIGTEXTLINE:
     SBC BIGWIDTH
     SBC BIGWIDTH
     LSR                 ;   Space = (WIDTH-6*BIGWIDTH)/2
+                        ;   #### Stoopid, do WIDTH/2-3*BIGWIDTH
     TAX
     LDA #" "
 LOOP2:
