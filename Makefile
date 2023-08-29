@@ -22,3 +22,20 @@ obj/data.asm: data/vocabulary.txt data/answers.txt bin/wozdleutil
 # Test under mame
 test: obj/wozdle.snp
 	mame -debug apple1 -ui_active -resolution 640x480 -snapshot obj/wozdle.snp
+
+bin/makeeprom: src/makeeprom.cpp
+	mkdir -p bin
+	c++ src/makeeprom.cpp -o bin/makeeprom
+
+obj/wozdle.bin: obj/wozdle.o65 bin/makeeprom
+	# bin/makeeprom 24576 < obj/wozdle.o65 > obj/wozdle.bin
+	bin/makeeprom 8192 < obj/wozdle.o65 > obj/wozdle.bin
+
+eeprom: obj/wozdle.bin
+	@echo "Copy of binary into a X28C256 via MiniPro"
+	minipro -p X28C256 -w obj/wozdle.bin
+
+eprom: obj/wozdle.bin
+	@echo "Copy of binary into a AM27C256 via MiniPro"
+	# minipro -p AM27C256@DIP28 -w obj/wozdle.bin
+	minipro -p D27256@DIP28 -w obj/wozdle.bin

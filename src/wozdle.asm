@@ -1,4 +1,4 @@
-* = $280
+* = $2000
 
 ;   WozMon definitions
 
