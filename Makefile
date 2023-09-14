@@ -1,7 +1,6 @@
 all: bin/wozdleutil obj/wozdle.snp
 
 obj/wozdle.snp: obj/wozdle.o65
-	( echo -e foo )
 	( /bin/echo -en "LOAD:\x02\x80DATA:" ; cat obj/wozdle.o65 ) > obj/wozdle.snp
 
 obj/wozdle.o65: src/wozdle.asm obj/data.asm
@@ -29,7 +28,8 @@ bin/makeeprom: src/makeeprom.cpp
 
 obj/wozdle.bin: obj/wozdle.o65 bin/makeeprom
 	# bin/makeeprom 24576 < obj/wozdle.o65 > obj/wozdle.bin
-	bin/makeeprom 8192 < obj/wozdle.o65 > obj/wozdle.bin
+	# bin/makeeprom 8192 < obj/wozdle.o65 > obj/wozdle.bin
+	bin/makeeprom 28672 < obj/wozdle.o65 > obj/wozdle.bin
 
 eeprom: obj/wozdle.bin
 	@echo "Copy of binary into a X28C256 via MiniPro"

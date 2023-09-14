@@ -1,4 +1,5 @@
-* = $2000
+* = $7000
+; * = $0280
 
 ;   WozMon definitions
 
@@ -69,9 +70,12 @@ TMP = $59
 BIGWIDTH = $5A          ;   With of the big string to display (6 for the title, 5 for the target word)
 BIGCHAR = $5B           ;   The char used to draw big letters
 
+WAITMO5 = $5C           ;   The counter for displaying the mo5 ad (2 bytes)
+
 SYMBOL_GREEN = "!"
 SYMBOL_YELLOW = "?"
 SYMBOL_GRAY = " "
+
 
 ; ---------------------------------------------------------------------------------
 ;   Main code 
@@ -765,6 +769,9 @@ RNDINIT:
 
         ;   Eats any key already pressed
     LDA KBD           
+    LDA #0
+    STA WAITMO5
+    STA WAITMO5+1
 
         ;   Wait for space while incrementing random
 LOOP1:
@@ -773,6 +780,14 @@ LOOP1:
     INC ANSINX
     BNE CONT
     INC ANSINX+1
+    INC WAITMO5
+    BNE CONT
+    INC WAITMO5+1
+    LDA WAITMO5+1
+    AND #$1F
+    BNE CONT
+    JSR MO5
+    JMP RNDINIT
 CONT:
     LDA KBDCR           ;   Key pressed?
     BPL LOOP1           ;   No
@@ -1644,3 +1659,44 @@ CHARROM:
     .byte %01001001
     .byte %01000101
     .byte %01100011
+
+MO5:
+.(
+    JSR PAGEFEED
+    JSR MSGINLINE
+.byte "            ___   ____________",$d
+.byte "           / _ ! / __/ __/ __ \",$d
+.byte "          / __ !_\ \_\ \/ /_/ /",$d
+.byte "   __  __/_/_!_/___/___/\____/_  __  ___"
+.byte "  /  !/  / __ \/ __/ / ___/ __ \/  !/  /"
+.byte " / /!_/ / /_/ /__ \_/ /__/ /_/ / /!_/ /",$d,$0
+    JSR MSGINLINE
+.byte "/_/  /_/\____/____(_)___/\____/_/  /_/",$d
+.byte " ________________",$d
+.byte "!                !",$d
+.byte "!                !            !",$d
+.byte "!       __       !            !",$d
+.byte "!      /  \      !             \__     ",$d
+.byte "!      \__/      !   REJOUER      \",$d,$0
+    JSR MSGINLINE
+.byte "!    ______      !            ____!____",$d
+.byte "!   !    X !     !     !     !  _   _  !"
+.byte "!   !    X !     !     !     ! ! ! ! ! !"
+.byte "!___!____X_!_____/     !     ! !_! !_! !"
+.byte "                   ___/      !         !",$0
+    JSR MSGINLINE
+.byte "    PRESERVER     /          !         !"
+.byte "        _________!_________  !         !"
+.byte "       !   !               ! !_________!"
+.byte "       ! --+--      _   _  !",$d
+.byte "       !   !   - - (_) (_) !  EXPLORER",$d
+.byte "       !___________________!           ",$0
+
+LOOP:
+    LDA KBDCR           ;   Key pressed?
+    BPL LOOP            ;   No
+
+    JSR PAGEFEED
+
+    RTS
+.)
