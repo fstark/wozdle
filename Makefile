@@ -1,11 +1,11 @@
-all: bin/wozdleutil obj/wozdle.snp
+all: 32KWOZDLE.BIN
 
-obj/wozdle.snp: obj/wozdle.o65
-	( /bin/echo -en "LOAD:\x02\x80DATA:" ; cat obj/wozdle.o65 ) > obj/wozdle.snp
+obj/wozdle.snp: WOZDLE
+	( /bin/echo -en "LOAD:\x02\x80DATA:" ; cat WOZDLE ) > obj/wozdle.snp
 
-obj/wozdle.o65: src/wozdle.asm obj/data.asm
+WOZDLE: src/wozdle.asm obj/data.asm
 	mkdir -p obj
-	xa -C -o obj/wozdle.o65 src/wozdle.asm
+	xa -C -o WOZDLE src/wozdle.asm
 
 clean:
 	rm -rf bin obj
@@ -26,16 +26,19 @@ bin/makeeprom: src/makeeprom.cpp
 	mkdir -p bin
 	c++ src/makeeprom.cpp -o bin/makeeprom
 
-obj/wozdle.bin: obj/wozdle.o65 bin/makeeprom
-	# bin/makeeprom 24576 < obj/wozdle.o65 > obj/wozdle.bin
-	# bin/makeeprom 8192 < obj/wozdle.o65 > obj/wozdle.bin
-	bin/makeeprom 28672 < obj/wozdle.o65 > obj/wozdle.bin
+32KWOZDLE.BIN: WOZDLE bin/makeeprom
+	bin/makeeprom 8192 < WOZDLE > 32KWOZDLE.BIN
 
-eeprom: obj/wozdle.bin
+obj/wozdle.bin: WOZDLE bin/makeeprom
+	# bin/makeeprom 24576 < WOZDLE > obj/wozdle.bin
+	bin/makeeprom 8192 < WOZDLE > obj/wozdle.bin
+	# bin/makeeprom 28672 < WOZDLE > obj/wozdle.bin
+
+eeprom: 32KWOZDLE.BIN
 	@echo "Copy of binary into a X28C256 via MiniPro"
-	minipro -p X28C256 -w obj/wozdle.bin
+	minipro -p X28C256 -w 32KWOZDLE.BIN
 
-eprom: obj/wozdle.bin
+eprom: 32KWOZDLE.BIN
 	@echo "Copy of binary into a AM27C256 via MiniPro"
-	# minipro -p AM27C256@DIP28 -w obj/wozdle.bin
-	minipro -p D27256@DIP28 -w obj/wozdle.bin
+	# minipro -p AM27C256@DIP28 -w 32KWOZDLE.BIN
+	minipro -p D27256@DIP28 -w 32KWOZDLE.BIN

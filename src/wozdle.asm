@@ -1,5 +1,5 @@
-; * = $7000
-* = $0280
+* = $2000
+;* = $0280
 
 ;   WozMon definitions
 
@@ -83,7 +83,6 @@ SYMBOL_GRAY = " "
 
 START:
 .(
-
         ;   ZP variables initialisation
         ;   GUESSCOUNT = 0
     LDA #0
@@ -494,9 +493,9 @@ END:
 .)
 
 KBDTEXT:
-    .byte "\Q  W  E  R  T  Y  U  I  O  P "
-    .byte "           \A  S  D  F  G  H  J  K _L__/"
-    .byte "            \Z__X__C__V__B__N__M__/     ", 0
+    .byte "\\Q  W  E  R  T  Y  U  I  O  P "
+    .byte "           \\A  S  D  F  G  H  J  K _L__/"
+    .byte "            \\Z__X__C__V__B__N__M__/     ", 0
 
 ;   Updates the keyboard status, update history and game turn
 UPDATE:
@@ -1696,18 +1695,18 @@ MO5:
 .byte "                  WOZ",0
 
 .byte "            ___   ____________",$d
-.byte "           / _ ! / __/ __/ __ \",$d
-.byte "          / __ !_\ \_\ \/ /_/ /",$d
-.byte "   __  __/_/_!_/___/___/\____/_  __  ___"
-.byte "  /  !/  / __ \/ __/ / ___/ __ \/  !/  /"
-.byte " / /!_/ / /_/ /__ \_/ /__/ /_/ / /!_/ /",$d
-.byte "/_/  /_/\____/____(_)___/\____/_/  /_/",$d
+.byte "           / _ ! / __/ __/ __ \\",$d
+.byte "          / __ !_\\ \\_\\ \\/ /_/ /",$d
+.byte "   __  __/_/_!_/___/___/\\____/_  __  ___"
+.byte "  /  !/  / __ \\/ __/ / ___/ __ \\/  !/  /"
+.byte " / /!_/ / /_/ /__ \\_/ /__/ /_/ / /!_/ /",$d
+.byte "/_/  /_/\\____/____(_)___/\\____/_/  /_/",$d
 .byte " ________________",$d
 .byte "!                !",$d
 .byte "!                !            !",$d
 .byte "!       __       !            !",$d
-.byte "!      /  \      !             \__     ",$d
-.byte "!      \__/      !   REJOUER      \",$d
+.byte "!      /  \\      !             \\__     ",$d
+.byte "!      \\__/      !   REJOUER      \\",$d
 .byte "!    ______      !            ____!____",$d
 .byte "!   !    X !     !     !     !  _   _  !"
 .byte "!   !    X !     !     !     ! ! ! ! ! !"
